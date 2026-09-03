@@ -1,19 +1,25 @@
+.# Jupyter
 .ipynb_checkpoints/
+**/.ipynb_checkpoints/
 
+# Python
 __pycache__/
-
 *.pyc
-
 *.pyo
 
+# Logs
 *.log
 
+# Environment variables
 .env
 
+# Virtual environments
 .venv/
-
 venv/
 
-.DS_Store
+# Excel temporary files
+~$*.xlsx
 
+# OS files
+.DS_Store
 Thumbs.db
