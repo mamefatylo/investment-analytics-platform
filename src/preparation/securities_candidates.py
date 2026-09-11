@@ -1,52 +1,53 @@
+"""
+securities_candidates.py
+
+Construction du Security Candidates Dataset.
+
+Source :
+SRC-001 Benchmark Dataset
+
+Objectif :
+
+- extraire la worksheet Holdings ;
+- reconstruire la table des positions ;
+- conserver les positions Equity ;
+- supprimer les doublons ;
+- produire security_candidates.csv.
+"""
+
 from pathlib import Path
 import re
+
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from src.config import (
+    BENCHMARK,
+    SECURITIES,
+)
+
+from src.utils.logger import (
+    logger,
+)
+
+# ============================================================================
+# FILES
+# ============================================================================
 
 INPUT_FILE = (
-    PROJECT_ROOT
-    / "data"
-    / "01_raw"
-    / "benchmark"
+    BENCHMARK
     / "benchmark_holdings.xls"
 )
 
-print("Reading benchmark file...")
-
-with open(INPUT_FILE, "r", encoding="utf-8", errors="ignore") as f:
-    content = f.read()
-
-# --------------------------------------------------
-# Extract Holdings worksheet
-# --------------------------------------------------
-
-match = re.search(
-    r'<ss:Worksheet ss:Name="Holdings">(.*?)</ss:Worksheet>',
-    content,
-    re.DOTALL
+OUTPUT_FILE = (
+    SECURITIES
+    / "security_candidates.csv"
 )
 
-if not match:
-    raise ValueError("Holdings worksheet not found.")
+# ============================================================================
+# HEADER DEFINITION
+# ============================================================================
 
-holdings_content = match.group(1)
-
-# --------------------------------------------------
-# Extract all values
-# --------------------------------------------------
-
-values = re.findall(
-    r'<ss:Data[^>]*>(.*?)</ss:Data>',
-    holdings_content,
-    re.DOTALL
-)
-
-# --------------------------------------------------
-# Locate header
-# --------------------------------------------------
-
-header = [
+HEADER = [
     "Ticker",
     "Name",
     "Sector",
@@ -60,131 +61,277 @@ header = [
     "Exchange",
     "Currency",
     "FX Rate",
-    "Accrual Date"
+    "Accrual Date",
 ]
 
-header_index = None
+# ============================================================================
+# PROCESSING
+# ============================================================================
 
-for i in range(len(values)):
-    if values[i:i + len(header)] == header:
-        header_index = i
-        break
 
-if header_index is None:
-    raise ValueError("Header not found.")
+def build_security_candidates() -> Path:
+    """
+    Construit le Security Candidates Dataset
+    à partir de la worksheet Holdings.
+    """
 
-print(f"Header found at position {header_index}")
+    logger.info(
+        "Security candidates extraction started"
+    )
 
-# --------------------------------------------------
-# Extract rows
-# --------------------------------------------------
+    try:
 
-data_values = values[
-    header_index + len(header):
-]
+        # --------------------------------------------------------------------
+        # FILE VALIDATION
+        # --------------------------------------------------------------------
 
-records = []
+        if not INPUT_FILE.exists():
 
-for i in range(0, len(data_values), len(header)):
-    row = data_values[i:i + len(header)]
+            raise FileNotFoundError(
+                f"Benchmark file not found: "
+                f"{INPUT_FILE}"
+            )
 
-    if len(row) != len(header):
-        continue
+        logger.info(
+            f"Benchmark file found: {INPUT_FILE}"
+        )
 
-    records.append(row)
+        # --------------------------------------------------------------------
+        # LOAD FILE
+        # --------------------------------------------------------------------
 
-df = pd.DataFrame(
-    records,
-    columns=header
-)
+        with open(
+            INPUT_FILE,
+            "r",
+            encoding="utf-8",
+            errors="ignore",
+        ) as file:
 
-print("\nDataFrame created.")
+            content = file.read()
 
-print(f"Rows    : {len(df):,}")
-print(f"Columns : {len(df.columns)}")
+        if not content:
 
-print("\nPreview:\n")
+            raise ValueError(
+                "Benchmark file is empty."
+            )
 
-print(
-    df[
-        ["Ticker", "Name", "Asset Class"]
-    ].head(20)
-)
+        logger.info(
+            "Benchmark file loaded"
+        )
 
-# --------------------------------------------------
-# Keep Equity only
-# --------------------------------------------------
+        # --------------------------------------------------------------------
+        # HOLDINGS EXTRACTION
+        # --------------------------------------------------------------------
 
-equities = df[
-    df["Asset Class"] == "Equity"
-].copy()
+        match = re.search(
+            r'<ss:Worksheet ss:Name="Holdings">(.*?)</ss:Worksheet>',
+            content,
+            re.DOTALL,
+        )
 
-print(f"\nEquities retained: {len(equities):,}")
+        if not match:
 
-# --------------------------------------------------
-# Select Security Master attributes
-# --------------------------------------------------
+            raise ValueError(
+                "Holdings worksheet not found."
+            )
 
-equities = equities[
-    [
-        "Ticker",
-        "Name",
-        "Location",
-        "Exchange",
-        "Currency",
-        "Asset Class"
-    ]
-]
+        holdings_content = match.group(1)
 
-# --------------------------------------------------
-# Remove duplicates
-# --------------------------------------------------
+        logger.info(
+            "Holdings worksheet extracted"
+        )
 
-equities = equities.drop_duplicates(
-    subset=[
-        "Ticker",
-        "Exchange"
-    ]
-)
+        # --------------------------------------------------------------------
+        # CELL EXTRACTION
+        # --------------------------------------------------------------------
 
-print(
-    f"Unique securities: {len(equities):,}"
-)
+        values = re.findall(
+            r"<ss:Data[^>]*>(.*?)</ss:Data>",
+            holdings_content,
+            re.DOTALL,
+        )
 
-# --------------------------------------------------
-# Export
-# --------------------------------------------------
+        if not values:
 
-OUTPUT_DIR = (
-    PROJECT_ROOT
-    / "data"
-    / "01_raw"
-    / "securities"
-)
+            raise ValueError(
+                "No worksheet data extracted."
+            )
 
-OUTPUT_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
+        logger.info(
+            f"Extracted {len(values):,} cell values"
+        )
 
-OUTPUT_FILE = (
-    OUTPUT_DIR
-    / "security_candidates.csv"
-)
+        # --------------------------------------------------------------------
+        # HEADER LOCATION
+        # --------------------------------------------------------------------
 
-equities.to_csv(
-    OUTPUT_FILE,
-    index=False
-)
+        header_index = None
 
-print(
-    f"\nSecurity candidates exported:"
-)
+        for i in range(len(values)):
 
-print(OUTPUT_FILE)
+            if (
+                values[
+                    i : i + len(HEADER)
+                ]
+                == HEADER
+            ):
 
-print("\nPreview:\n")
+                header_index = i
+                break
 
-print(
-    equities.head(20)
-)
+        if header_index is None:
+
+            raise ValueError(
+                "Header not found."
+            )
+
+        logger.info(
+            f"Header found at position "
+            f"{header_index}"
+        )
+
+        # --------------------------------------------------------------------
+        # DATAFRAME RECONSTRUCTION
+        # --------------------------------------------------------------------
+
+        data_values = values[
+            header_index + len(HEADER):
+        ]
+
+        records = []
+
+        for i in range(
+            0,
+            len(data_values),
+            len(HEADER),
+        ):
+
+            row = data_values[
+                i : i + len(HEADER)
+            ]
+
+            if len(row) != len(HEADER):
+                continue
+
+            records.append(row)
+
+        df = pd.DataFrame(
+            records,
+            columns=HEADER,
+        )
+
+        if df.empty:
+
+            raise ValueError(
+                "No holdings records reconstructed."
+            )
+
+        logger.info(
+            f"Worksheet reconstructed: "
+            f"{len(df):,} rows | "
+            f"{len(df.columns)} columns"
+        )
+
+        # --------------------------------------------------------------------
+        # EQUITY FILTER
+        # --------------------------------------------------------------------
+
+        equities = df[
+            df["Asset Class"] == "Equity"
+        ].copy()
+
+        if equities.empty:
+
+            raise ValueError(
+                "No equity positions found."
+            )
+
+        logger.info(
+            f"Equity positions retained: "
+            f"{len(equities):,}"
+        )
+
+        # --------------------------------------------------------------------
+        # ATTRIBUTE SELECTION
+        # --------------------------------------------------------------------
+
+        equities = equities[
+            [
+                "Ticker",
+                "Name",
+                "Location",
+                "Exchange",
+                "Currency",
+                "Asset Class",
+            ]
+        ]
+
+        logger.info(
+            "Security candidate attributes selected"
+        )
+
+        # --------------------------------------------------------------------
+        # DEDUPLICATION
+        # --------------------------------------------------------------------
+
+        equities = equities.drop_duplicates(
+            subset=[
+                "Ticker",
+                "Exchange",
+            ]
+        )
+
+        logger.info(
+            f"Unique securities: "
+            f"{len(equities):,}"
+        )
+
+        # --------------------------------------------------------------------
+        # EXPORT
+        # --------------------------------------------------------------------
+
+        SECURITIES.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        equities.to_csv(
+            OUTPUT_FILE,
+            index=False,
+        )
+
+        logger.info(
+            f"Security candidates exported: "
+            f"{OUTPUT_FILE}"
+        )
+
+        logger.info(
+            "Security candidates extraction "
+            "completed successfully"
+        )
+
+        return OUTPUT_FILE
+
+    except Exception as error:
+
+        logger.exception(
+            "Security candidates extraction "
+            f"failed: {error}"
+        )
+
+        raise
+
+
+# ============================================================================
+# MAIN
+# ============================================================================
+
+
+def main():
+
+    build_security_candidates()
+
+
+if __name__ == "__main__":
+
+    main()

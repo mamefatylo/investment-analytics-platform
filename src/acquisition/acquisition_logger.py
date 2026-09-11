@@ -3,7 +3,7 @@ acquisition_logger.py
 
 Journalisation des acquisitions de données.
 
-Chaque exécution d'un script d'acquisition doit créer
+Chaque exécution d'un script d'acquisition crée
 une entrée dans :
 
 audit/acquisition_log.xlsx
@@ -13,7 +13,13 @@ from datetime import datetime
 
 import pandas as pd
 
-from src.config import ACQUISITION_LOG_FILE
+from src.config import (
+    ACQUISITION_LOG_FILE,
+)
+
+from src.utils.logger import (
+    logger,
+)
 
 # ============================================================================
 # CONFIGURATION
@@ -45,25 +51,27 @@ VALID_STATUS = [
 # ============================================================================
 
 
-def initialize_log():
+def initialize_log() -> None:
     """
     Crée acquisition_log.xlsx s'il n'existe pas.
     """
 
     if not ACQUISITION_LOG_FILE.exists():
 
-        # Création du dossier audit si nécessaire
-
         ACQUISITION_LOG_FILE.parent.mkdir(
             parents=True,
             exist_ok=True,
         )
 
-        df = pd.DataFrame(columns=LOG_COLUMNS)
-
-        df.to_excel(
+        pd.DataFrame(
+            columns=LOG_COLUMNS
+        ).to_excel(
             ACQUISITION_LOG_FILE,
             index=False,
+        )
+
+        logger.info(
+            "Acquisition log initialized"
         )
 
 
@@ -72,7 +80,7 @@ def initialize_log():
 # ============================================================================
 
 
-def generate_run_id():
+def generate_run_id() -> str:
     """
     Génère un identifiant unique d'acquisition.
 
@@ -80,7 +88,9 @@ def generate_run_id():
     ACQ-20260903-141523
     """
 
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now().strftime(
+        "%Y%m%d-%H%M%S"
+    )
 
     return f"ACQ-{timestamp}"
 
@@ -103,41 +113,13 @@ def log_acquisition(
 ):
     """
     Ajoute une ligne dans acquisition_log.xlsx.
-
-    Parameters
-    ----------
-    source_id : str
-        Identifiant de la source (SRC-XXX)
-
-    dataset : str
-        Dataset concerné
-
-    provider : str
-        Fournisseur de données
-
-    period_covered : str
-        Période couverte par l'acquisition
-
-    output_file : str
-        Fichier généré
-
-    storage_location : str
-        Emplacement du fichier généré
-
-    status : str
-        Planned, Success, Failed ou Partial Success
-
-    records_downloaded : int | None
-        Nombre d'enregistrements téléchargés.
-        None lorsque l'information n'est pas encore disponible.
-
-    notes : str
-        Commentaires éventuels
     """
 
     if status not in VALID_STATUS:
+
         raise ValueError(
-            f"Status must be one of: {VALID_STATUS}"
+            f"Status must be one of: "
+            f"{VALID_STATUS}"
         )
 
     initialize_log()
@@ -185,8 +167,9 @@ def log_acquisition(
         index=False,
     )
 
-    print(
-        f"[LOGGED] {run_id} | "
+    logger.info(
+        f"[AUDIT] {run_id} | "
+        f"{source_id} | "
         f"{dataset} | "
         f"{status}"
     )

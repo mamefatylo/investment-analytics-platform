@@ -12,16 +12,28 @@ Objectif :
 - télécharger automatiquement le fichier benchmark ;
 - sauvegarder le fichier dans data/01_raw/benchmark ;
 - vérifier que le fichier a bien été récupéré ;
-- détecter son format ;
-- alimenter l'Acquisition Log.
+- contrôler le format du fichier téléchargé ;
+- contrôler la présence de la worksheet Holdings ;
+- alimenter l'Acquisition Log ;
+- journaliser l'exécution technique.
 """
 
 from datetime import datetime
+from pathlib import Path
 
 import requests
 
-from src.config import BENCHMARK
-from src.acquisition.acquisition_logger import log_acquisition
+from src.acquisition.acquisition_logger import (
+    log_acquisition,
+)
+
+from src.config import (
+    BENCHMARK,
+)
+
+from src.utils.logger import (
+    logger,
+)
 
 # ============================================================================
 # SOURCE CONFIGURATION
@@ -40,7 +52,10 @@ DOWNLOAD_URL = (
     "&userType=individual"
 )
 
-OUTPUT_FILE = BENCHMARK / "benchmark_holdings.xls"
+OUTPUT_FILE = (
+    BENCHMARK
+    / "benchmark_holdings.xls"
+)
 
 HEADERS = {
     "User-Agent": (
@@ -49,31 +64,41 @@ HEADERS = {
     )
 }
 
+EXPECTED_FORMAT = "SpreadsheetML XML"
+
 # ============================================================================
 # EXTRACTION
 # ============================================================================
 
 
-def extract_benchmark():
+def extract_benchmark() -> Path:
     """
-    Télécharge le fichier benchmark iShares SDG
+    Télécharge le benchmark iShares SDG
     et l'enregistre dans la couche RAW.
     """
 
-    print("=" * 60)
-    print("BENCHMARK ACQUISITION")
-    print("=" * 60)
+    logger.info(
+        "SRC-001 benchmark acquisition started"
+    )
 
     try:
 
-        # Création du dossier cible
+        # --------------------------------------------------------------------
+        # CREATE TARGET DIRECTORY
+        # --------------------------------------------------------------------
 
         BENCHMARK.mkdir(
             parents=True,
             exist_ok=True,
         )
 
-        # Téléchargement
+        logger.info(
+            "Benchmark directory verified"
+        )
+
+        # --------------------------------------------------------------------
+        # DOWNLOAD FILE
+        # --------------------------------------------------------------------
 
         response = requests.get(
             DOWNLOAD_URL,
@@ -83,40 +108,94 @@ def extract_benchmark():
 
         response.raise_for_status()
 
-        # Sauvegarde locale
+        logger.info(
+            "Benchmark file downloaded"
+        )
+
+        # --------------------------------------------------------------------
+        # CONTENT VALIDATION
+        # --------------------------------------------------------------------
+
+        if not response.content:
+
+            raise ValueError(
+                "Downloaded file is empty."
+            )
+
+        logger.info(
+            "Downloaded content is not empty"
+        )
+
+        # --------------------------------------------------------------------
+        # SAVE FILE
+        # --------------------------------------------------------------------
 
         with open(
             OUTPUT_FILE,
             "wb",
         ) as file:
 
-            file.write(response.content)
+            file.write(
+                response.content
+            )
 
-        # Contrôles
+        logger.info(
+            f"File saved: {OUTPUT_FILE}"
+        )
 
-        file_size = OUTPUT_FILE.stat().st_size
+        # --------------------------------------------------------------------
+        # FILE CONTROLS
+        # --------------------------------------------------------------------
+
+        file_size = (
+            OUTPUT_FILE
+            .stat()
+            .st_size
+        )
 
         with open(
             OUTPUT_FILE,
             "rb",
         ) as file:
 
-            preview = file.read(500)
+            content = file.read()
 
-        if b"<ss:Workbook" in preview:
+        # --------------------------------------------------------------------
+        # FORMAT VALIDATION
+        # --------------------------------------------------------------------
 
-            workbook_type = "SpreadsheetML XML"
+        if b"<ss:Workbook" not in content:
 
-        else:
+            raise ValueError(
+                "Downloaded file is not a valid "
+                "SpreadsheetML workbook."
+            )
 
-            workbook_type = "Unknown Format"
+        # --------------------------------------------------------------------
+        # HOLDINGS VALIDATION
+        # --------------------------------------------------------------------
+
+        if b"Holdings" not in content:
+
+            raise ValueError(
+                "Holdings worksheet not found "
+                "in downloaded file."
+            )
+
+        workbook_type = EXPECTED_FORMAT
+
+        logger.info(
+            f"Format validated: {workbook_type}"
+        )
 
         file_size_mb = round(
             file_size / (1024 * 1024),
             2,
         )
 
-        # Journalisation
+        # --------------------------------------------------------------------
+        # ACQUISITION LOG
+        # --------------------------------------------------------------------
 
         run_id = log_acquisition(
             source_id="SRC-001",
@@ -126,7 +205,9 @@ def extract_benchmark():
                 "%Y-%m-%d"
             ),
             output_file=OUTPUT_FILE.name,
-            storage_location=str(BENCHMARK),
+            storage_location=str(
+                BENCHMARK
+            ),
             status="Success",
             records_downloaded=None,
             notes=(
@@ -135,36 +216,69 @@ def extract_benchmark():
             ),
         )
 
-        print(f"Run ID: {run_id}")
-        print(f"File saved: {OUTPUT_FILE}")
-        print(f"File size: {file_size_mb} MB")
-        print(f"Detected format: {workbook_type}")
+        # --------------------------------------------------------------------
+        # COMPLETION LOG
+        # --------------------------------------------------------------------
+
+        logger.info(
+            f"Run ID: {run_id}"
+        )
+
+        logger.info(
+            f"File size: {file_size_mb} MB"
+        )
+
+        logger.info(
+            "Benchmark acquisition completed successfully"
+        )
 
         return OUTPUT_FILE
 
     except Exception as error:
 
-        log_acquisition(
-            source_id="SRC-001",
-            dataset="Benchmark Dataset",
-            provider="iShares / BlackRock",
-            period_covered=datetime.today().strftime(
-                "%Y-%m-%d"
-            ),
-            output_file=OUTPUT_FILE.name,
-            storage_location=str(BENCHMARK),
-            status="Failed",
-            records_downloaded=None,
-            notes=str(error),
+        logger.exception(
+            f"SRC-001 benchmark acquisition failed: "
+            f"{error}"
         )
+
+        try:
+
+            log_acquisition(
+                source_id="SRC-001",
+                dataset="Benchmark Dataset",
+                provider="iShares / BlackRock",
+                period_covered=datetime.today().strftime(
+                    "%Y-%m-%d"
+                ),
+                output_file=OUTPUT_FILE.name,
+                storage_location=str(
+                    BENCHMARK
+                ),
+                status="Failed",
+                records_downloaded=None,
+                notes=str(error),
+            )
+
+        except Exception as log_error:
+
+            logger.exception(
+                f"Failed to write acquisition log: "
+                f"{log_error}"
+            )
 
         raise
 
 
 # ============================================================================
-# EXECUTION
+# MAIN
 # ============================================================================
+
+
+def main():
+
+    extract_benchmark()
+
 
 if __name__ == "__main__":
 
-    extract_benchmark()
+    main()

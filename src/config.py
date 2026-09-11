@@ -20,7 +20,7 @@ from pathlib import Path
 
 PROJECT_NAME = "Investment Analytics Platform"
 
-VERSION = "1.0"
+VERSION = "2.0"
 
 REPORTING_CURRENCY = "CHF"
 
@@ -86,7 +86,7 @@ PROCESSED_ODD = PROCESSED_DIR / "odd"
 PROCESSED_EXCLUSIONS = PROCESSED_DIR / "exclusions"
 
 # ---------------------------------------------------------------------------
-# UNIVERSE
+# UNIVERSE DATASETS
 # ---------------------------------------------------------------------------
 
 CANDIDATE_UNIVERSE = UNIVERSE_DIR / "candidate"
@@ -107,17 +107,33 @@ DATABASE_FILE = DATABASE_DIR / "sdg_investment.db"
 
 SRC_DIR = PROJECT_ROOT / "src"
 
+PREPARATION = SRC_DIR / "preparation"
 ACQUISITION = SRC_DIR / "acquisition"
 QUALITY = SRC_DIR / "quality"
-SECURITIES_MASTER = SRC_DIR / "securities_master"
-UNIVERSE = SRC_DIR / "universe"
 
-PORTFOLIO_CONSTRUCTION = SRC_DIR / "portfolio_construction"
-PORTFOLIO_MONITORING = SRC_DIR / "portfolio_monitoring"
+SECURITIES_MASTER_MODULE = (
+    SRC_DIR / "securities_master"
+)
+
+UNIVERSE_MODULE = (
+    SRC_DIR / "universe"
+)
+
+PORTFOLIO_CONSTRUCTION = (
+    SRC_DIR / "portfolio_construction"
+)
+
+PORTFOLIO_MONITORING = (
+    SRC_DIR / "portfolio_monitoring"
+)
 
 PERFORMANCE = SRC_DIR / "performance"
+
 RISK = SRC_DIR / "risk"
-STRESS_TESTING = SRC_DIR / "stress_testing"
+
+STRESS_TESTING = (
+    SRC_DIR / "stress_testing"
+)
 
 REPORTING = SRC_DIR / "reporting"
 
@@ -137,8 +153,14 @@ REPORTS_DIR = PROJECT_ROOT / "reports"
 
 PORTFOLIO_REPORTS = REPORTS_DIR / "portfolio"
 RISK_REPORTS = REPORTS_DIR / "risk"
-MANAGEMENT_REPORTS = REPORTS_DIR / "management"
-EXECUTIVE_REPORTS = REPORTS_DIR / "executive"
+
+MANAGEMENT_REPORTS = (
+    REPORTS_DIR / "management"
+)
+
+EXECUTIVE_REPORTS = (
+    REPORTS_DIR / "executive"
+)
 
 # ============================================================================
 # AUDIT & GOVERNANCE
@@ -146,9 +168,25 @@ EXECUTIVE_REPORTS = REPORTS_DIR / "executive"
 
 AUDIT_DIR = PROJECT_ROOT / "audit"
 
-SOURCE_REGISTRY_FILE = AUDIT_DIR / "source_registry.xlsx"
-ACQUISITION_LOG_FILE = AUDIT_DIR / "acquisition_log.xlsx"
-DATA_CONTROL_CENTER_FILE = AUDIT_DIR / "data_control_center.xlsx"
+SOURCE_REGISTRY_FILE = (
+    AUDIT_DIR / "source_registry.xlsx"
+)
+
+ACQUISITION_LOG_FILE = (
+    AUDIT_DIR / "acquisition_log.xlsx"
+)
+
+DATA_CONTROL_CENTER_FILE = (
+    AUDIT_DIR / "data_control_center.xlsx"
+)
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+
+LOGS_DIR = PROJECT_ROOT / "logs"
+
+TECHNICAL_LOG = LOGS_DIR / "technical.log"
 
 # ============================================================================
 # TESTS
@@ -156,7 +194,18 @@ DATA_CONTROL_CENTER_FILE = AUDIT_DIR / "data_control_center.xlsx"
 
 TESTS_DIR = PROJECT_ROOT / "tests"
 
-ACQUISITION_TESTS = TESTS_DIR / "acquisition"
-QUALITY_TESTS = TESTS_DIR / "quality"
-PORTFOLIO_TESTS = TESTS_DIR / "portfolio"
-RISK_TESTS = TESTS_DIR / "risk"
+ACQUISITION_TESTS = (
+    TESTS_DIR / "acquisition"
+)
+
+QUALITY_TESTS = (
+    TESTS_DIR / "quality"
+)
+
+PORTFOLIO_TESTS = (
+    TESTS_DIR / "portfolio"
+)
+
+RISK_TESTS = (
+    TESTS_DIR / "risk"
+)

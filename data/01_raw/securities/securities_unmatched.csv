@@ -1,0 +1,18 @@
+ticker,name_source,location,exchange_source,currency,asset_class,exchange_code,figi,composite_figi,share_class_figi,security_name,security_type,security_type_2,market_sector,security_description,match_count,status
+ESSITY B,ESSITY CLASS B,Sweden,Nasdaq Omx Nordic,USD,Equity,SS,,,,,,,,,0,NO_MATCH
+300750,CONTEMPORARY AMPEREX TECHNOLOGY A,China,Shenzhen Stock Exchange,USD,Equity,SZ,,,,,,,,,0,NO_MATCH
+UU.,UNITED UTILITIES GROUP PLC,United Kingdom,London Stock Exchange,USD,Equity,LN,,,,,,,,,0,NO_MATCH
+002129,TCL ZHONGHUAN RENEWABLE ENERGY TEC,China,Shenzhen Stock Exchange,USD,Equity,SZ,,,,,,,,,0,NO_MATCH
+SUZLON,SUZLON ENERGY,India,National Stock Exchange Of India,USD,Equity,IN,,,,,,,,,0,NO_MATCH
+SCA B,SVENSKA CELLULOSA B,Sweden,Nasdaq Omx Nordic,USD,Equity,SS,,,,,,,,,0,NO_MATCH
+HINDUNILVR,HINDUSTAN UNILEVER LTD,India,National Stock Exchange Of India,USD,Equity,IN,,,,,,,,,0,NO_MATCH
+001979,CHINA MERCHANTS SHEKOU INDUSTRIAL,China,Shenzhen Stock Exchange,USD,Equity,SZ,,,,,,,,,0,NO_MATCH
+300274,SUNGROW POWER SUPPLY LTD A,China,Shenzhen Stock Exchange,USD,Equity,SZ,,,,,,,,,0,NO_MATCH
+002202,GOLDWIND SCIENCE&amp;TECHNOLOGY LTD A,China,Shenzhen Stock Exchange,USD,Equity,SZ,,,,,,,,,0,NO_MATCH
+LUPIN,LUPIN,India,National Stock Exchange Of India,USD,Equity,IN,,,,,,,,,0,NO_MATCH
+301358,HUNAN YUNENG NEW ENERGY BATTERY MA,China,Shenzhen Stock Exchange,USD,Equity,SZ,,,,,,,,,0,NO_MATCH
+2082,ACWA POWER CO,Saudi Arabia,Saudi Stock Exchange,USD,Equity,AB,,,,,,,,,0,NO_MATCH
+000895,HENAN SHUANGHUI INVESTMENT &amp; DEVEL,China,Shenzhen Stock Exchange,USD,Equity,SZ,,,,,,,,,0,NO_MATCH
+NESTLEIND,NESTLE INDIA LTD,India,National Stock Exchange Of India,USD,Equity,IN,,,,,,,,,0,NO_MATCH
+FIBRAPL14,PROLOGIS PROPERTY MEXICO REIT,Mexico,Bolsa Mexicana De Valores,USD,Equity,MM,,,,,,,,,0,NO_MATCH
+COLPAL,COLGATE PALMOLIVE INDIA LTD,India,National Stock Exchange Of India,USD,Equity,IN,,,,,,,,,0,NO_MATCH
