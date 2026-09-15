@@ -5,275 +5,414 @@ Phase 4 - Data Quality Framework
 
 Objectif
 ---------
-Exécuter les contrôles qualité sur les données
-stockées dans la base SQLite du projet.
+Exécuter des contrôles qualité génériques sur
+tous les datasets actifs marqués Quality Enabled.
 
-Table actuellement contrôlée :
-    - securities_master
-
-Contrôles :
-    - Missing Values
-    - Duplicates
-    - Invalid Formats
-    - Outliers
-    - Currency Consistency
-    - Data Chronology
+Contrôles
+----------
+- Table Availability
+- Dataset Not Empty
+- Completeness
+- Duplicate Rows
+- Blank Values
+- Column Integrity
+- Chronology Readiness
 """
 
+from datetime import datetime
 import sqlite3
 
 import pandas as pd
 
-from src.config import (
-    DATABASE_FILE,
+from src.config import DATABASE_FILE
+from src.utils.logger import logger
+from src.quality.quality_config import (
+    OPTIONAL_COLUMNS,
 )
 
-from src.utils.logger import logger
+
+# ============================================================================
+# CONTROL DEFINITIONS
+# ============================================================================
+
+CONTROL_IDS = {
+    "Table Availability": "QC-001",
+    "Dataset Not Empty": "QC-002",
+    "Completeness": "QC-003",
+    "Duplicate Rows": "QC-004",
+    "Blank Values": "QC-005",
+    "Column Integrity": "QC-006",
+    "Chronology Readiness": "QC-007",
+}
+
 
 # ============================================================================
 # DATABASE
 # ============================================================================
 
+def create_connection():
 
-def load_securities_master() -> pd.DataFrame:
-    """
-    Charge la table securities_master.
-    """
-
-    connection = sqlite3.connect(
+    return sqlite3.connect(
         DATABASE_FILE
     )
 
-    try:
 
-        dataframe = pd.read_sql(
-            """
-            SELECT *
-            FROM securities_master
-            """,
-            connection,
-        )
+def load_quality_enabled_datasets(
+    connection,
+) -> pd.DataFrame:
 
-        return dataframe
+    return pd.read_sql(
+        """
+        SELECT
+            dataset_id,
+            source_id,
+            table_name,
+            chronology_enabled
+        FROM dataset_registry
+        WHERE active = 1
+        AND quality_enabled = 1
+        ORDER BY dataset_id
+        """,
+        connection,
+    )
 
-    finally:
 
-        connection.close()
+def load_dataset(
+    connection,
+    table_name: str,
+) -> pd.DataFrame:
+
+    return pd.read_sql(
+        f'SELECT * FROM "{table_name}"',
+        connection,
+    )
 
 
 # ============================================================================
-# CONTROL RESULT
+# RESULT FACTORY
 # ============================================================================
-
 
 def build_result(
+    dataset_id: str,
+    source_id: str,
+    table_name: str,
     control_name: str,
     status: str,
     issues: int,
     records_checked: int,
     notes: str,
 ) -> dict:
-    """
-    Construit un résultat normalisé.
-    """
 
     return {
-        "control_name": control_name,
-        "status": status,
-        "issues": issues,
-        "records_checked": records_checked,
-        "notes": notes,
+        "dataset_id":
+            dataset_id,
+
+        "source_id":
+            source_id,
+
+        "table_name":
+            table_name,
+
+        "control_id":
+            CONTROL_IDS[
+                control_name
+            ],
+
+        "control_name":
+            control_name,
+
+        "status":
+            status,
+
+        "issues":
+            int(
+                issues
+            ),
+
+        "records_checked":
+            int(
+                records_checked
+            ),
+
+        "execution_date":
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+
+        "notes":
+            notes,
     }
 
 
 # ============================================================================
-# MISSING VALUES
+# CONTROLS
 # ============================================================================
 
-
-def check_missing_values(
-    dataframe: pd.DataFrame,
+def check_table_availability(
+    connection,
+    dataset,
 ) -> dict:
 
-    required_fields = [
-        "ticker",
-        "exchange_code",
-        "status",
-    ]
+    row = connection.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type='table'
+        AND name=?
+        """,
+        (
+            dataset.table_name,
+        ),
+    ).fetchone()
 
-    missing = dataframe[
-        required_fields
-    ].isna().sum().sum()
+    exists = row is not None
 
-    status = (
-        "PASS"
-        if missing == 0
-        else "FAIL"
+    return build_result(
+        dataset_id=dataset.dataset_id,
+        source_id=dataset.source_id,
+        table_name=dataset.table_name,
+        control_name="Table Availability",
+        status=(
+            "PASS"
+            if exists
+            else "FAIL"
+        ),
+        issues=0 if exists else 1,
+        records_checked=0,
+        notes="Physical table existence",
+    )
+
+
+def check_dataset_not_empty(
+    dataset,
+    dataframe,
+) -> dict:
+
+    records = len(
+        dataframe
     )
 
     return build_result(
-        control_name="Missing Values",
-        status=status,
+        dataset_id=dataset.dataset_id,
+        source_id=dataset.source_id,
+        table_name=dataset.table_name,
+        control_name="Dataset Not Empty",
+        status=(
+            "PASS"
+            if records > 0
+            else "FAIL"
+        ),
+        issues=0 if records > 0 else 1,
+        records_checked=records,
+        notes="Dataset contains records",
+    )
+
+
+def check_completeness(
+    dataset,
+    dataframe,
+) -> dict:
+
+    columns_to_check = [
+        column
+        for column in dataframe.columns
+        if column not in OPTIONAL_COLUMNS
+    ]
+
+    if not columns_to_check:
+
+        return build_result(
+            dataset_id=dataset.dataset_id,
+            source_id=dataset.source_id,
+            table_name=dataset.table_name,
+            control_name="Completeness",
+            status="PASS",
+            issues=0,
+            records_checked=len(dataframe),
+            notes="No mandatory columns configured",
+        )
+
+    missing = (
+        dataframe[columns_to_check]
+        .isna()
+        .sum()
+        .sum()
+    )
+
+    return build_result(
+        dataset_id=dataset.dataset_id,
+        source_id=dataset.source_id,
+        table_name=dataset.table_name,
+        control_name="Completeness",
+        status=(
+            "PASS"
+            if missing == 0
+            else "WARNING"
+        ),
         issues=int(missing),
         records_checked=len(dataframe),
-        notes=(
-            "Mandatory fields validation"
-        ),
+        notes="Mandatory field completeness",
     )
 
 
-# ============================================================================
-# DUPLICATES
-# ============================================================================
-
-
-def check_duplicates(
-    dataframe: pd.DataFrame,
+def check_duplicate_rows(
+    dataset,
+    dataframe,
 ) -> dict:
 
-    duplicates = dataframe.duplicated().sum()
+    duplicates = (
+        dataframe
+        .duplicated()
+        .sum()
+    )
 
     status = (
-        "PASS"
+                "PASS"
         if duplicates == 0
-        else "FAIL"
+        else "WARNING"
     )
 
     return build_result(
-        control_name="Duplicates",
+        dataset_id=dataset.dataset_id,
+        source_id=dataset.source_id,
+        table_name=dataset.table_name,
+        control_name="Duplicate Rows",
         status=status,
-        issues=int(duplicates),
-        records_checked=len(dataframe),
-        notes="Duplicate rows",
+        issues=duplicates,
+        records_checked=len(
+            dataframe
+        ),
+        notes="Duplicate row detection",
     )
 
 
-# ============================================================================
-# INVALID STATUS
-# ============================================================================
-
-
-def check_invalid_formats(
-    dataframe: pd.DataFrame,
+def check_blank_values(
+    dataset,
+    dataframe,
 ) -> dict:
 
-    valid_status = [
-        "MATCH",
-        "NO_MATCH",
-        "MISSING_MAPPING",
-        "ERROR",
-    ]
+    blank_count = 0
 
-    invalid = len(
-        dataframe[
-            ~dataframe[
-                "status"
-            ].isin(valid_status)
-        ]
-    )
+    for column in dataframe.columns:
+
+        blank_count += (
+            dataframe[column]
+            .astype(str)
+            .str.strip()
+            .eq("")
+            .sum()
+        )
 
     status = (
         "PASS"
-        if invalid == 0
-        else "FAIL"
+        if blank_count == 0
+        else "WARNING"
     )
 
     return build_result(
-        control_name="Invalid Formats",
+        dataset_id=dataset.dataset_id,
+        source_id=dataset.source_id,
+        table_name=dataset.table_name,
+        control_name="Blank Values",
         status=status,
-        issues=int(invalid),
-        records_checked=len(dataframe),
-        notes="Status validation",
+        issues=blank_count,
+        records_checked=len(
+            dataframe
+        ),
+        notes="Blank value detection",
     )
 
 
-# ============================================================================
-# OUTLIERS
-# ============================================================================
-
-
-def check_outliers(
-    dataframe: pd.DataFrame,
+def check_column_integrity(
+    dataset,
+    dataframe,
 ) -> dict:
 
-    outliers = len(
-        dataframe[
-            (dataframe["status"] == "MATCH")
-            &
-            (
-                dataframe["match_count"]
-                <= 0
+    duplicate_columns = (
+        dataframe.columns.duplicated().sum()
+    )
+
+    unnamed_columns = len(
+        [
+            column
+            for column in dataframe.columns
+            if str(column).startswith(
+                "Unnamed"
             )
         ]
     )
 
-    status = (
-        "PASS"
-        if outliers == 0
-        else "FAIL"
-    )
-
-    return build_result(
-        control_name="Outliers",
-        status=status,
-        issues=int(outliers),
-        records_checked=len(dataframe),
-        notes=(
-            "MATCH records must have "
-            "match_count > 0"
-        ),
-    )
-
-
-# ============================================================================
-# CURRENCY CONSISTENCY
-# ============================================================================
-
-
-def check_currency_consistency(
-    dataframe: pd.DataFrame,
-) -> dict:
-
-    invalid = len(
-        dataframe[
-            dataframe["currency"]
-            .isna()
-        ]
+    issues = (
+        duplicate_columns
+        + unnamed_columns
     )
 
     status = (
         "PASS"
-        if invalid == 0
+        if issues == 0
         else "FAIL"
     )
 
     return build_result(
-        control_name="Currency Consistency",
+        dataset_id=dataset.dataset_id,
+        source_id=dataset.source_id,
+        table_name=dataset.table_name,
+        control_name="Column Integrity",
         status=status,
-        issues=int(invalid),
-        records_checked=len(dataframe),
-        notes="Currency populated",
+        issues=issues,
+        records_checked=len(
+            dataframe
+        ),
+        notes="Column structure validation",
     )
 
 
-# ============================================================================
-# DATA CHRONOLOGY
-# ============================================================================
-
-
-def check_data_chronology(
-    dataframe: pd.DataFrame,
+def check_chronology_readiness(
+    dataset,
+    dataframe,
 ) -> dict:
 
+    chronology_enabled = bool(
+        dataset.chronology_enabled
+    )
+
+    if not chronology_enabled:
+
+        return build_result(
+            dataset_id=dataset.dataset_id,
+            source_id=dataset.source_id,
+            table_name=dataset.table_name,
+            control_name="Chronology Readiness",
+            status="NOT_APPLICABLE",
+            issues=0,
+            records_checked=len(
+                dataframe
+            ),
+            notes="Chronology disabled",
+        )
+
+    date_columns = [
+        column
+        for column in dataframe.columns
+        if "date"
+        in column.lower()
+    ]
+
     return build_result(
-        control_name="Data Chronology",
-        status="NOT_APPLICABLE",
-        issues=0,
-        records_checked=len(dataframe),
-        notes=(
-            "No time series available "
-            "at current phase"
+        dataset_id=dataset.dataset_id,
+        source_id=dataset.source_id,
+        table_name=dataset.table_name,
+        control_name="Chronology Readiness",
+        status=(
+            "PASS"
+            if date_columns
+            else "FAIL"
         ),
+        issues=0 if date_columns else 1,
+        records_checked=len(
+            dataframe
+        ),
+        notes="Date column detection",
     )
 
 
@@ -281,62 +420,122 @@ def check_data_chronology(
 # ORCHESTRATOR
 # ============================================================================
 
-
 def run_quality_checks() -> pd.DataFrame:
-    """
-    Exécute l'ensemble des contrôles.
-    """
 
     logger.info(
-        "Data quality checks started"
+        "Quality controls started"
     )
 
-    dataframe = load_securities_master()
+    results = []
 
-    results = [
-        check_missing_values(
-            dataframe
-        ),
-        check_duplicates(
-            dataframe
-        ),
-        check_invalid_formats(
-            dataframe
-        ),
-        check_outliers(
-            dataframe
-        ),
-        check_currency_consistency(
-            dataframe
-        ),
-        check_data_chronology(
-            dataframe
-        ),
-    ]
+    connection = create_connection()
 
-    result_dataframe = pd.DataFrame(
+    try:
+
+        datasets = (
+            load_quality_enabled_datasets(
+                connection
+            )
+        )
+
+        for dataset in (
+            datasets.itertuples()
+        ):
+
+            results.append(
+                check_table_availability(
+                    connection,
+                    dataset,
+                )
+            )
+
+            dataframe = load_dataset(
+                connection,
+                dataset.table_name,
+            )
+
+            results.extend(
+                [
+                    check_dataset_not_empty(
+                        dataset,
+                        dataframe,
+                    ),
+
+                    check_completeness(
+                        dataset,
+                        dataframe,
+                    ),
+
+                    check_duplicate_rows(
+                        dataset,
+                        dataframe,
+                    ),
+
+                    check_blank_values(
+                        dataset,
+                        dataframe,
+                    ),
+
+                    check_column_integrity(
+                        dataset,
+                        dataframe,
+                    ),
+
+                    check_chronology_readiness(
+                        dataset,
+                        dataframe,
+                    ),
+                ]
+            )
+
+    finally:
+
+        connection.close()
+
+    controls = pd.DataFrame(
         results
     )
 
     logger.info(
-        "Data quality checks completed"
+        "Controls executed: %s",
+        len(
+            controls
+        ),
     )
 
-    return result_dataframe
+    logger.info(
+        "Quality controls completed"
+    )
+
+    return controls
 
 
 # ============================================================================
 # MAIN
 # ============================================================================
 
-
 def main():
 
-    results = run_quality_checks()
+    controls = (
+        run_quality_checks()
+    )
 
-    print(results)
+    pd.set_option(
+        "display.max_columns",
+        None,
+    )
+
+    pd.set_option(
+        "display.width",
+        None,
+    )
+
+    print(
+        controls
+    )
 
 
 if __name__ == "__main__":
 
     main()
+ 
