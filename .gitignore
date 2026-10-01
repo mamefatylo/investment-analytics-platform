@@ -86,3 +86,7 @@ reset_*.py
 
 ~$*.xls
 ~$*.xlsx
+database/*.db-shm
+database/*.db-wal
+data/01_raw/fundamentals/fundamentals_sec.csv
+data/01_raw/market/market_prices.csv
