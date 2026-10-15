@@ -34,9 +34,12 @@ REPORTING_CURRENCY = "CHF"
 START_DATE = None
 END_DATE = None
 
-# Nombre conventionnel de jours de bourse par année
+# Jours de bourse par année. Réservé à une série quotidienne.
+# Les portefeuilles mensuels annualisent avec MONTHS_PER_YEAR.
 
 ANNUALIZATION_FACTOR = 252
+
+MONTHS_PER_YEAR = 12
 
 # ============================================================================
 # PROJECT ROOT
@@ -92,6 +95,12 @@ PROCESSED_EXCLUSIONS = PROCESSED_DIR / "exclusions"
 CANDIDATE_UNIVERSE = UNIVERSE_DIR / "candidate"
 ELIGIBLE_UNIVERSE = UNIVERSE_DIR / "eligible"
 EXCLUDED_UNIVERSE = UNIVERSE_DIR / "excluded"
+
+# ---------------------------------------------------------------------------
+# PORTFOLIO DATASETS
+# ---------------------------------------------------------------------------
+
+PORTFOLIO_DATA = DATA_DIR / "04_portfolios"
 
 # ============================================================================
 # DATABASE
@@ -152,6 +161,7 @@ POWERBI = DASHBOARDS_DIR / "powerbi"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
 PORTFOLIO_REPORTS = REPORTS_DIR / "portfolio"
+MONITORING_REPORTS = REPORTS_DIR / "monitoring"
 RISK_REPORTS = REPORTS_DIR / "risk"
 
 MANAGEMENT_REPORTS = (

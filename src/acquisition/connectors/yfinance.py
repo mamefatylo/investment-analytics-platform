@@ -13,25 +13,60 @@ Identity architecture
 ---------------------
 The configured Yahoo symbol remains the requested provider identifier.
 
+Identity decisions use independent evidence states, not numeric score
+thresholds. Each provider-side dimension is classified as:
+
+- MATCH
+- CONTRADICTION
+- UNKNOWN
+
+Evidence dimensions:
+
+- exact_symbol
+- quote_type
+- exchange
+- name
+
 For each instrument:
 
-1. Search Yahoo using the configured symbol and, when available, the
-   upstream instrument name.
-2. Look specifically for the exact configured Yahoo symbol.
-3. Validate that exact symbol using independent identity evidence:
-   - exact Yahoo symbol;
-   - quote type;
-   - exchange;
-   - instrument/company name.
-4. Only an exact symbol with sufficiently coherent identity is eligible
-   for automatic market-data download.
-5. If the exact configured symbol cannot be validated, Yahoo Search may
-   identify a strong alternative candidate.
-6. Alternative candidates are diagnostic only:
-   - SEARCH_RESOLVED;
-   - review_required=True;
-   - download_eligible=False;
-   - no automatic modification of the upstream securities master.
+1. Look up the configured symbol first with non-fuzzy Yahoo Search.
+   If that search does not return the exact symbol, read yfinance
+   Ticker.info for that symbol only. Do not download prices during
+   identity validation.
+2. Evaluate the exact candidate with independent evidence states.
+3. DIRECT_VALIDATED (and automatic download) requires exact_symbol
+   MATCH and no material CONTRADICTION on quote_type, exchange, or
+   name. UNKNOWN evidence does not reject.
+4. If the exact symbol is missing or has a material CONTRADICTION,
+   fuzzy symbol search or company-name search may discover a strong
+   alternative for review only.
+5. SEARCH_RESOLVED alternatives are diagnostic only:
+   - review_required=True
+   - download_eligible=False
+   - no automatic modification of the upstream securities master
+
+Each identity decision also records:
+
+- identity_method: EXACT_SEARCH | EXACT_TICKER_INFO |
+  ALTERNATIVE_SEARCH | NONE
+- identity_reason: a small closed set of technical reasons
+  (exact no-contradiction / exact contradictions by dimension /
+  unique or multiple strong alternatives / no provider identity)
+
+IDENTITY_NOT_FOUND means Yahoo returned no observable identity at all
+(no exact candidate and no alternative candidates) after a successful
+provider response. Candidates that exist but cannot be validated are
+IDENTITY_AMBIGUOUS (or SEARCH_RESOLVED when a unique strong alternative
+exists).
+
+Technical Yahoo failures are never converted into empty candidate lists
+or IDENTITY_NOT_FOUND. Transport, authentication, dependency, and
+response-contract failures raise the corresponding connector exceptions
+from base.py. A Yahoo HTTP 404 that correctly reports quote/symbol not
+found is provider identity absence (not transport): exact Ticker.info
+returns None so alternative discovery can continue; Search treats it as
+an empty candidate list. Only successful emptiness or that absence
+signal may yield an empty candidate list and NO_PROVIDER_IDENTITY.
 
 The connector never:
 - promotes RAW data to processed or universe;
@@ -55,11 +90,13 @@ import pandas as pd
 
 from src.acquisition.connectors.base import (
     BaseConnector,
+    ConnectorAuthenticationError,
     ConnectorConfigurationError,
     ConnectorContext,
     ConnectorDependencyError,
     ConnectorResponseError,
     ConnectorResult,
+    ConnectorTransportError,
 )
 from src.utils.logger import logger
 
@@ -142,27 +179,92 @@ REVIEW_REQUIRED_STATUSES = frozenset({
 
 
 # ============================================================================
-# IDENTITY RULES
+# IDENTITY METHOD / REASON
 # ============================================================================
+#
+# identity_method — how the selected Yahoo identity was obtained.
+# identity_reason — stable technical explanation of the decision.
+
+IDENTITY_METHOD_EXACT_SEARCH = "EXACT_SEARCH"
+IDENTITY_METHOD_EXACT_TICKER_INFO = "EXACT_TICKER_INFO"
+IDENTITY_METHOD_ALTERNATIVE_SEARCH = "ALTERNATIVE_SEARCH"
+IDENTITY_METHOD_NONE = "NONE"
+
+IDENTITY_METHODS = frozenset({
+    IDENTITY_METHOD_EXACT_SEARCH,
+    IDENTITY_METHOD_EXACT_TICKER_INFO,
+    IDENTITY_METHOD_ALTERNATIVE_SEARCH,
+    IDENTITY_METHOD_NONE,
+})
+
+IDENTITY_REASON_EXACT_NO_CONTRADICTION = "EXACT_NO_CONTRADICTION"
+IDENTITY_REASON_EXACT_NAME_CONTRADICTION = "EXACT_NAME_CONTRADICTION"
+IDENTITY_REASON_EXACT_EXCHANGE_CONTRADICTION = (
+    "EXACT_EXCHANGE_CONTRADICTION"
+)
+IDENTITY_REASON_EXACT_QUOTE_TYPE_CONTRADICTION = (
+    "EXACT_QUOTE_TYPE_CONTRADICTION"
+)
+IDENTITY_REASON_UNIQUE_STRONG_ALTERNATIVE = (
+    "UNIQUE_STRONG_ALTERNATIVE"
+)
+IDENTITY_REASON_MULTIPLE_STRONG_ALTERNATIVES = (
+    "MULTIPLE_STRONG_ALTERNATIVES"
+)
+IDENTITY_REASON_NO_STRONG_ALTERNATIVE = "NO_STRONG_ALTERNATIVE"
+IDENTITY_REASON_INCONSISTENT_EXACT_CANDIDATES = (
+    "INCONSISTENT_EXACT_CANDIDATES"
+)
+IDENTITY_REASON_NO_PROVIDER_IDENTITY = "NO_PROVIDER_IDENTITY"
+
+IDENTITY_REASONS = frozenset({
+    IDENTITY_REASON_EXACT_NO_CONTRADICTION,
+    IDENTITY_REASON_EXACT_NAME_CONTRADICTION,
+    IDENTITY_REASON_EXACT_EXCHANGE_CONTRADICTION,
+    IDENTITY_REASON_EXACT_QUOTE_TYPE_CONTRADICTION,
+    IDENTITY_REASON_UNIQUE_STRONG_ALTERNATIVE,
+    IDENTITY_REASON_MULTIPLE_STRONG_ALTERNATIVES,
+    IDENTITY_REASON_NO_STRONG_ALTERNATIVE,
+    IDENTITY_REASON_INCONSISTENT_EXACT_CANDIDATES,
+    IDENTITY_REASON_NO_PROVIDER_IDENTITY,
+})
+
+# When several material contradictions exist on the exact path,
+# report one reason with this priority (highest first).
+EXACT_CONTRADICTION_REASON_PRIORITY = (
+    (
+        "quote_type",
+        IDENTITY_REASON_EXACT_QUOTE_TYPE_CONTRADICTION,
+    ),
+    (
+        "exchange",
+        IDENTITY_REASON_EXACT_EXCHANGE_CONTRADICTION,
+    ),
+    (
+        "name",
+        IDENTITY_REASON_EXACT_NAME_CONTRADICTION,
+    ),
+)
+
+
+# ============================================================================
+# EVIDENCE STATES
+# ============================================================================
+
+EVIDENCE_MATCH = "MATCH"
+EVIDENCE_CONTRADICTION = "CONTRADICTION"
+EVIDENCE_UNKNOWN = "UNKNOWN"
+
+EVIDENCE_STATES = frozenset({
+    EVIDENCE_MATCH,
+    EVIDENCE_CONTRADICTION,
+    EVIDENCE_UNKNOWN,
+})
 
 ACCEPTABLE_QUOTE_TYPES = frozenset({
     "equity",
     "etf",
 })
-
-# A configured exact Yahoo symbol already provides strong identifier
-# evidence. Name comparison is therefore used primarily to detect
-# contradictions rather than to demand almost identical wording.
-DIRECT_MIN_NAME_SCORE = 0.60
-
-# A different Yahoo symbol has no exact identifier evidence and therefore
-# requires substantially stronger identity evidence.
-SEARCH_MIN_NAME_SCORE = 0.85
-
-# If two alternative candidates are almost equally good, the connector
-# must not choose between them automatically.
-SEARCH_MIN_MARGIN = 0.05
-
 
 # Corporate/legal suffixes are weak identity information.
 # They are removed from name comparisons.
@@ -194,9 +296,13 @@ CORPORATE_STOPWORDS = frozenset({
 # YAHOO EXCHANGE TAXONOMY
 # ============================================================================
 #
+# EXCHANGE_GROUPS are provider interoperability aliases only
+# (human-readable exchange labels ↔ Yahoo codes). They are not a
+# business exchange master.
+#
 # The upstream Exchange field may contain human-readable exchange names,
 # while Yahoo Search commonly returns provider codes such as HKG, JPX,
-# NMS or STO.
+# NMS, TOR or SES.
 #
 # Exchange comparison therefore uses explicit equivalence groups.
 #
@@ -247,6 +353,12 @@ EXCHANGE_GROUPS = {
         "tokyostockexchange",
         "japanexchangegroup",
         "jpx",
+    },
+    "TORONTO": {
+        "toronto",
+        "torontostockexchange",
+        "tsx",
+        "tor",
     },
     "SHANGHAI": {
         "shanghai",
@@ -377,6 +489,20 @@ EXCHANGE_GROUPS = {
         "telavivstockexchange",
         "tase",
         "tlv",
+    },
+    "GERMANY": {
+        "xetra",
+        "frankfurt",
+        "frankfurtstockexchange",
+        "deutscheboerse",
+        "ger",
+        "fra",
+    },
+    "MADRID": {
+        "madrid",
+        "bolsademadrid",
+        "bme",
+        "mce",
     },
 }
 
@@ -564,36 +690,289 @@ def normalized_name_tokens(
     }
 
 
-def name_similarity(
+def significant_name_tokens(
+    value: Any,
+) -> set[str]:
+    """
+    Name tokens used for evidence classification.
+
+    Single-character tokens are treated as truncation debris and
+    ignored when longer tokens remain.
+    """
+
+    tokens = normalized_name_tokens(
+        value
+    )
+
+    if not tokens:
+        return set()
+
+    filtered = {
+        token
+        for token in tokens
+        if len(token) > 1
+    }
+
+    return filtered or tokens
+
+
+def token_is_truncation_of(
+    shorter: str,
+    longer: str,
+) -> bool:
+    """
+    True when shorter is a meaningful truncation of longer.
+
+    Short stems (length <= 4) are rejected here so false friends such
+    as "sap" / "saputo" are not treated as the same company name.
+    """
+
+    return (
+        longer.startswith(shorter)
+        and len(longer) > len(shorter)
+        and len(shorter) >= 5
+    )
+
+
+def tokens_are_false_friends(
+    left: str,
+    right: str,
+) -> bool:
+    """
+    Detect short proper-prefix collisions between distinct words.
+
+    Example: "sap" versus "saputo".
+
+    Single-character and two-letter stubs are excluded so truncated
+    debris such as "a" / "apple" stays UNKNOWN rather than CONTRADICTION.
+    """
+
+    if (
+        right.startswith(left)
+        and len(right) > len(left)
+        and 3 <= len(left) <= 4
+        and (len(right) - len(left)) >= 2
+    ):
+        return True
+
+    if (
+        left.startswith(right)
+        and len(left) > len(right)
+        and 3 <= len(right) <= 4
+        and (len(left) - len(right)) >= 2
+    ):
+        return True
+
+    return False
+
+
+def abbreviation_versus_phrase(
+    left_tokens: set[str],
+    right_tokens: set[str],
+) -> bool:
+    """
+    Weak identity: a short single token against a multi-token name.
+
+    Example: "IBM" versus "International Business Machines".
+    This is UNKNOWN, not CONTRADICTION.
+    """
+
+    if (
+        len(left_tokens) == 1
+        and len(right_tokens) >= 2
+        and len(next(iter(left_tokens))) <= 4
+    ):
+        return True
+
+    if (
+        len(right_tokens) == 1
+        and len(left_tokens) >= 2
+        and len(next(iter(right_tokens))) <= 4
+    ):
+        return True
+
+    return False
+
+
+def name_side_is_informative(
+    tokens: set[str],
+) -> bool:
+    """
+    True when a name side has enough content to support a firm
+    MATCH or CONTRADICTION claim.
+
+    Insufficient / non-comparable evidence includes missing names,
+    single-character debris, and ultra-short lone stubs. Legal
+    suffixes are already stripped before this check.
+    """
+
+    if not tokens:
+        return False
+
+    if all(
+        len(token) <= 1
+        for token in tokens
+    ):
+        return False
+
+    if (
+        len(tokens) == 1
+        and len(next(iter(tokens))) <= 2
+    ):
+        return False
+
+    return True
+
+
+def remainder_tokens_compatible(
+    left_only: set[str],
+    right_only: set[str],
+    left_all: set[str],
+    right_all: set[str],
+) -> bool:
+    for token in left_only:
+        compatible = any(
+            token == other
+            or token_is_truncation_of(token, other)
+            or token_is_truncation_of(other, token)
+            for other in right_all
+        )
+
+        if not compatible:
+            return False
+
+    for token in right_only:
+        compatible = any(
+            token == other
+            or token_is_truncation_of(token, other)
+            or token_is_truncation_of(other, token)
+            for other in left_all
+        )
+
+        if not compatible:
+            return False
+
+    return True
+
+
+def classify_name_evidence(
     expected_name: Any,
     candidate_name_value: Any,
-) -> float:
-    left_tokens = normalized_name_tokens(
+) -> str:
+    """
+    Classify name identity as MATCH, CONTRADICTION, or UNKNOWN.
+
+    Conservative rules of thumb
+    ---------------------------
+    - strong match → MATCH
+    - both sides sufficiently informative and clearly incompatible
+      company identities → CONTRADICTION
+    - missing, weak, abbreviated, truncated, or otherwise
+      non-comparable evidence → UNKNOWN
+
+    Prefer UNKNOWN over guessing. Do not use global similarity-score
+    gates. UNKNOWN must never be used to paper over a clear
+    different-company signal when both names are informative.
+
+    Examples
+    --------
+    - SAP SE versus Saputo Inc. → CONTRADICTION (false-friend stem)
+    - Microsoft versus Apple → CONTRADICTION (informative, no shared core)
+    - Truncated CapitaLand names versus full CapitaLand names →
+      MATCH or UNKNOWN, never forced CONTRADICTION
+    - IBM versus International Business Machines → UNKNOWN
+    """
+
+    left = significant_name_tokens(
         expected_name
     )
 
-    right_tokens = normalized_name_tokens(
+    right = significant_name_tokens(
         candidate_name_value
     )
 
+    if not left or not right:
+        return EVIDENCE_UNKNOWN
+
     if (
-        not left_tokens
-        or not right_tokens
+        left == right
+        or left <= right
+        or right <= left
     ):
-        return 0.0
+        return EVIDENCE_MATCH
 
-    intersection = len(
-        left_tokens & right_tokens
-    )
+    shared = left & right
 
-    return (
-        2.0
-        * intersection
-        / (
-            len(left_tokens)
-            + len(right_tokens)
-        )
-    )
+    if shared:
+        left_only = left - shared
+        right_only = right - shared
+
+        if remainder_tokens_compatible(
+            left_only,
+            right_only,
+            left,
+            right,
+        ):
+            return EVIDENCE_MATCH
+
+        # Shared core with incompatible leftovers is uncertain,
+        # not proof of distinct issuers.
+        return EVIDENCE_UNKNOWN
+
+    if abbreviation_versus_phrase(
+        left,
+        right,
+    ):
+        return EVIDENCE_UNKNOWN
+
+    if len(left) == 1 and len(right) == 1:
+        left_token = next(iter(left))
+        right_token = next(iter(right))
+
+        if (
+            token_is_truncation_of(
+                left_token,
+                right_token,
+            )
+            or token_is_truncation_of(
+                right_token,
+                left_token,
+            )
+        ):
+            return EVIDENCE_MATCH
+
+        # Short proper-prefix collision between distinct words
+        # (e.g. sap / saputo) is an obvious different-company case.
+        if tokens_are_false_friends(
+            left_token,
+            right_token,
+        ):
+            return EVIDENCE_CONTRADICTION
+
+        if (
+            name_side_is_informative(left)
+            and name_side_is_informative(right)
+        ):
+            return EVIDENCE_CONTRADICTION
+
+        return EVIDENCE_UNKNOWN
+
+    # Multi-token / mixed names with no shared core.
+    for left_token in left:
+        for right_token in right:
+            if tokens_are_false_friends(
+                left_token,
+                right_token,
+            ):
+                return EVIDENCE_CONTRADICTION
+
+    if (
+        name_side_is_informative(left)
+        and name_side_is_informative(right)
+    ):
+        return EVIDENCE_CONTRADICTION
+
+    return EVIDENCE_UNKNOWN
 
 
 # ============================================================================
@@ -634,6 +1013,17 @@ def load_yfinance():
     ):
         raise ConnectorDependencyError(
             "Installed yfinance does not expose Search()."
+        )
+
+    if not callable(
+        getattr(
+            module,
+            "Ticker",
+            None,
+        )
+    ):
+        raise ConnectorDependencyError(
+            "Installed yfinance does not expose Ticker()."
         )
 
     return module
@@ -879,8 +1269,329 @@ def resolve_runtime_options(
 
 
 # ============================================================================
+# YAHOO PROVIDER FAILURE CLASSIFICATION
+# ============================================================================
+#
+# One coherent place for Yahoo/yfinance exception semantics.
+# Callers decide how identity_absent is handled (None / [] / raise).
+
+YAHOO_FAILURE_IDENTITY_ABSENT = "identity_absent"
+YAHOO_FAILURE_AUTHENTICATION = "authentication"
+YAHOO_FAILURE_TRANSPORT = "transport"
+YAHOO_FAILURE_RESPONSE = "response"
+
+
+def yahoo_http_status_code(
+    error: BaseException,
+) -> int | None:
+    """
+    Best-effort HTTP status from urllib/requests-style exceptions.
+    """
+
+    for attribute in (
+        "code",
+        "status",
+        "status_code",
+    ):
+        value = getattr(
+            error,
+            attribute,
+            None,
+        )
+
+        if isinstance(
+            value,
+            int,
+        ):
+            return value
+
+    response = getattr(
+        error,
+        "response",
+        None,
+    )
+
+    if response is not None:
+        for attribute in (
+            "status_code",
+            "status",
+            "code",
+        ):
+            value = getattr(
+                response,
+                attribute,
+                None,
+            )
+
+            if isinstance(
+                value,
+                int,
+            ):
+                return value
+
+    match = re.search(
+        r"\b([1-5][0-9]{2})\b",
+        str(error),
+    )
+
+    if match is None:
+        return None
+
+    return int(
+        match.group(1)
+    )
+
+
+def is_yahoo_quote_not_found_message(
+    message: str,
+) -> bool:
+    """
+    True when the message indicates Yahoo has no quote/symbol at the
+    requested endpoint (identity absence, not transport failure).
+    """
+
+    strong_markers = (
+        "quote not found",
+        "symbol not found",
+        "ticker not found",
+    )
+
+    if any(
+        marker in message
+        for marker in strong_markers
+    ):
+        return True
+
+    weak_markers = (
+        "not found",
+        "no data found",
+        "no fundamentals data",
+    )
+
+    return any(
+        marker in message
+        for marker in weak_markers
+    )
+
+
+def classify_yahoo_provider_failure(
+    error: BaseException,
+) -> str:
+    """
+    Classify a Yahoo/yfinance failure for connector mapping.
+
+    Returns one of:
+    - identity_absent: 404 + quote/symbol not found (provider correctly
+      reports the identifier is absent at that endpoint)
+    - authentication: 401 / 403
+    - transport: 429 / rate limit, timeout, connection, network
+    - response: malformed / unexpected / other non-transport HTTP
+    """
+
+    if isinstance(
+        error,
+        ConnectorAuthenticationError,
+    ):
+        return YAHOO_FAILURE_AUTHENTICATION
+
+    if isinstance(
+        error,
+        ConnectorTransportError,
+    ):
+        return YAHOO_FAILURE_TRANSPORT
+
+    if isinstance(
+        error,
+        (
+            ConnectorConfigurationError,
+            ConnectorDependencyError,
+            ConnectorResponseError,
+        ),
+    ):
+        return YAHOO_FAILURE_RESPONSE
+
+    error_name = type(error).__name__
+    message = str(error).casefold()
+    status_code = yahoo_http_status_code(
+        error
+    )
+
+    strong_not_found = any(
+        marker in message
+        for marker in (
+            "quote not found",
+            "symbol not found",
+            "ticker not found",
+        )
+    )
+
+    # Strong Yahoo wording is identity absence even if status extraction
+    # fails. Weak "not found" wording requires an HTTP 404 signal.
+    if strong_not_found or (
+        (
+            status_code == 404
+            or "404" in message
+        )
+        and is_yahoo_quote_not_found_message(
+            message
+        )
+    ):
+        return YAHOO_FAILURE_IDENTITY_ABSENT
+
+    if (
+        status_code in {
+            401,
+            403,
+        }
+        or any(
+            marker in message
+            for marker in (
+                "unauthorized",
+                "forbidden",
+                "authentication",
+            )
+        )
+    ):
+        # Prefer explicit auth status over vague message matches when
+        # the status is clearly something else.
+        if status_code is None or status_code in {
+            401,
+            403,
+        }:
+            return YAHOO_FAILURE_AUTHENTICATION
+
+    if (
+        status_code == 429
+        or error_name == "YFRateLimitError"
+        or any(
+            marker in message
+            for marker in (
+                "too many requests",
+                "rate limit",
+            )
+        )
+    ):
+        return YAHOO_FAILURE_TRANSPORT
+
+    transport_names = {
+        "ChunkedEncodingError",
+        "ConnectTimeout",
+        "ConnectionError",
+        "ProxyError",
+        "ReadTimeout",
+        "RequestException",
+        "SSLError",
+        "Timeout",
+        "TimeoutError",
+        "URLError",
+        "YFDataException",
+    }
+
+    transport_markers = (
+        "timed out",
+        "timeout",
+        "connection",
+        "network",
+        "temporarily unavailable",
+        "currently down",
+        "will be right back",
+    )
+
+    if (
+        error_name in transport_names
+        or isinstance(
+            error,
+            (
+                ConnectionError,
+                TimeoutError,
+                OSError,
+            ),
+        )
+        or any(
+            marker in message
+            for marker in transport_markers
+        )
+    ):
+        return YAHOO_FAILURE_TRANSPORT
+
+    # HTTP 5xx is treated as transport (provider temporarily unusable).
+    if (
+        status_code is not None
+        and 500 <= status_code <= 599
+    ):
+        return YAHOO_FAILURE_TRANSPORT
+
+    # Remaining HTTPError (including bare 404 without quote-not-found
+    # wording) is a response/contract issue, not blanket transport.
+    return YAHOO_FAILURE_RESPONSE
+
+
+def raise_yahoo_provider_failure(
+    operation: str,
+    error: BaseException,
+) -> None:
+    """
+    Map a Yahoo/yfinance failure to a connector exception.
+
+    Never returns. Technical provider failures must not be converted
+    into empty candidate lists or IDENTITY_NOT_FOUND.
+
+    For identity_absent (404 quote/symbol not found), raises
+    ConnectorResponseError. Identity callers that should continue
+    (Ticker.info → None, Search → []) must classify first and handle
+    identity_absent without calling this helper.
+    """
+
+    kind = classify_yahoo_provider_failure(
+        error
+    )
+
+    if kind == YAHOO_FAILURE_AUTHENTICATION:
+        if isinstance(
+            error,
+            ConnectorAuthenticationError,
+        ):
+            raise error
+
+        raise ConnectorAuthenticationError(
+            f"Yahoo {operation} authentication was rejected."
+        ) from error
+
+    if kind == YAHOO_FAILURE_TRANSPORT:
+        if isinstance(
+            error,
+            ConnectorTransportError,
+        ):
+            raise error
+
+        raise ConnectorTransportError(
+            f"Yahoo {operation} transport request failed."
+        ) from error
+
+    if kind == YAHOO_FAILURE_IDENTITY_ABSENT:
+        raise ConnectorResponseError(
+            f"Yahoo {operation} reported quote/symbol not found."
+        ) from error
+
+    if isinstance(
+        error,
+        (
+            ConnectorConfigurationError,
+            ConnectorDependencyError,
+            ConnectorResponseError,
+        ),
+    ):
+        raise error
+
+    raise ConnectorResponseError(
+        f"Yahoo {operation} returned an unusable response."
+    ) from error
+
+
+# ============================================================================
 # YAHOO SEARCH
 # ============================================================================
+
 
 def normalize_search_candidate(
     candidate: Any,
@@ -926,7 +1637,18 @@ def search_yahoo(
     yfinance_module,
     query: str,
     max_results: int,
+    enable_fuzzy_query: bool,
 ) -> list[dict[str, Any]]:
+    """
+    Run one Yahoo Search query.
+
+    A successful response with no quotes returns []. Quote/symbol not
+    found (HTTP 404 style identity absence) also returns [] so the
+    batch continues. Transport, authentication, and response-contract
+    failures raise connector exceptions and must not be reported as
+    IDENTITY_NOT_FOUND.
+    """
+
     normalized_query = optional_text(
         query
     )
@@ -943,7 +1665,7 @@ def search_yahoo(
             include_cb=False,
             include_nav_links=False,
             include_research=False,
-            enable_fuzzy_query=True,
+            enable_fuzzy_query=enable_fuzzy_query,
             recommended=0,
             raise_errors=True,
         )
@@ -951,18 +1673,29 @@ def search_yahoo(
         quotes = search.quotes
 
     except Exception as error:
-        logger.warning(
-            "Yahoo Search failed for %s: %s",
-            normalized_query,
+        if (
+            classify_yahoo_provider_failure(
+                error
+            )
+            == YAHOO_FAILURE_IDENTITY_ABSENT
+        ):
+            return []
+
+        raise_yahoo_provider_failure(
+            "Search",
             error,
         )
+
+    if quotes is None:
         return []
 
     if not isinstance(
         quotes,
         list,
     ):
-        return []
+        raise ConnectorResponseError(
+            "Yahoo Search quotes must be a list."
+        )
 
     output: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -993,34 +1726,293 @@ def search_yahoo(
     return output
 
 
-def collect_identity_candidates(
+def lookup_ticker_candidate(
+    *,
+    yfinance_module,
+    symbol: str,
+) -> dict[str, Any] | None:
+    """
+    Read provider identity for one exact Yahoo symbol.
+
+    This uses Ticker info only. Historical prices are not downloaded.
+
+    Returns None when Yahoo successfully indicates no usable identity
+    for the symbol: empty/non-dict info, a different returned symbol,
+    or HTTP 404 quote/symbol not found (provider identity absence).
+    That None lets exact-path callers continue to alternative discovery.
+    Transport, authentication, and other response-contract failures
+    raise; they are not treated as identity absence.
+    """
+
+    try:
+        ticker = yfinance_module.Ticker(
+            symbol
+        )
+        info = getattr(
+            ticker,
+            "info",
+            None,
+        )
+
+    except Exception as error:
+        if (
+            classify_yahoo_provider_failure(
+                error
+            )
+            == YAHOO_FAILURE_IDENTITY_ABSENT
+        ):
+            return None
+
+        raise_yahoo_provider_failure(
+            "Ticker.info",
+            error,
+        )
+
+    if info is None:
+        return None
+
+    if not isinstance(
+        info,
+        dict,
+    ):
+        raise ConnectorResponseError(
+            "Yahoo Ticker.info must return a dictionary."
+        )
+
+    returned = optional_text(
+        info.get("symbol")
+    )
+
+    if (
+        returned is None
+        or returned.casefold()
+        != symbol.casefold()
+    ):
+        return None
+
+    quote_type = optional_text(
+        info.get("quoteType")
+    )
+
+    return {
+        "symbol": returned,
+        "shortname": optional_text(
+            info.get("shortName")
+        ),
+        "longname": optional_text(
+            info.get("longName")
+        ),
+        "exchange": optional_text(
+            info.get("exchange")
+        ),
+        "exchange_disp": optional_text(
+            info.get("fullExchangeName")
+        ),
+        "quote_type": quote_type,
+        "type_disp": quote_type,
+    }
+
+
+def read_quote_currency(
+    *,
+    yfinance_module,
+    symbol: str,
+) -> str | None:
+    """
+    Return the quote currency Yahoo publishes for one symbol.
+
+    The value is stored as Yahoo spells it, including a minor-unit
+    code such as GBp. Nothing is converted to an ISO code here.
+    """
+
+    try:
+        ticker = yfinance_module.Ticker(
+            symbol
+        )
+        fast_info = getattr(
+            ticker,
+            "fast_info",
+            None,
+        )
+        currency = None
+
+        if fast_info is not None:
+            currency = optional_text(
+                fast_info.get(
+                    "currency"
+                )
+            )
+
+        if currency is None:
+            info = getattr(
+                ticker,
+                "info",
+                None,
+            )
+            if isinstance(
+                info,
+                dict,
+            ):
+                currency = optional_text(
+                    info.get(
+                        "currency"
+                    )
+                )
+
+    except Exception as error:
+        message = str(error).casefold()
+        currency_absent = (
+            isinstance(error, KeyError)
+            or "quote not found" in message
+            or "no data found" in message
+            or classify_yahoo_provider_failure(error)
+            == YAHOO_FAILURE_IDENTITY_ABSENT
+        )
+        if currency_absent:
+            return None
+
+        raise_yahoo_provider_failure(
+            "quote currency",
+            error,
+        )
+
+    return currency
+
+
+def lookup_exact_candidates(
+    *,
+    yfinance_module,
+    configured_symbol: str,
+    max_results: int,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    str | None,
+]:
+    """
+    Resolve the configured symbol without fuzzy Search ranking.
+
+    Non-exact hits from this query are withheld until the exact
+    candidate has been judged.
+
+    Returns
+    -------
+    exact
+        Candidates whose symbol equals the configured symbol.
+    others
+        Non-exact hits from the non-fuzzy symbol Search query.
+    exact_identity_method
+        EXACT_SEARCH when Search returned the exact symbol,
+        EXACT_TICKER_INFO when Ticker.info supplied the only exact
+        candidate, or None when no exact candidate exists.
+    """
+
+    exact: list[dict[str, Any]] = []
+    others: list[dict[str, Any]] = []
+
+    for candidate in search_yahoo(
+        yfinance_module=yfinance_module,
+        query=configured_symbol,
+        max_results=max_results,
+        enable_fuzzy_query=False,
+    ):
+        if (
+            candidate["symbol"].casefold()
+            == configured_symbol.casefold()
+        ):
+            exact.append(
+                candidate
+            )
+        else:
+            others.append(
+                candidate
+            )
+
+    if exact:
+        return (
+            exact,
+            others,
+            IDENTITY_METHOD_EXACT_SEARCH,
+        )
+
+    ticker_candidate = lookup_ticker_candidate(
+        yfinance_module=yfinance_module,
+        symbol=configured_symbol,
+    )
+
+    if ticker_candidate is not None:
+        exact.append(
+            ticker_candidate
+        )
+
+        return (
+            exact,
+            others,
+            IDENTITY_METHOD_EXACT_TICKER_INFO,
+        )
+
+    return (
+        exact,
+        others,
+        None,
+    )
+
+
+def collect_alternative_candidates(
     *,
     yfinance_module,
     instrument: dict[str, Any],
     max_results: int,
+    excluded_symbols: set[str],
 ) -> list[dict[str, Any]]:
-    queries = [
-        instrument["configured_symbol"]
-    ]
+    """
+    Discover alternative listings after the exact symbol was judged.
 
-    if instrument["input_name"]:
-        queries.append(
-            instrument["input_name"]
+    Company-name search and fuzzy symbol search are discovery only.
+    They cannot validate the configured symbol.
+    """
+
+    queries: list[
+        tuple[str, bool]
+    ] = []
+
+    input_name = optional_text(
+        instrument.get(
+            "input_name"
         )
+    )
+
+    if input_name is not None:
+        queries.append(
+            (
+                input_name,
+                False,
+            )
+        )
+
+    queries.append(
+        (
+            instrument["configured_symbol"],
+            True,
+        )
+    )
 
     candidates: list[dict[str, Any]] = []
-    seen_symbols: set[str] = set()
-    used_queries: set[str] = set()
+    seen_symbols = set(
+        excluded_symbols
+    )
+    used_queries: set[
+        tuple[str, bool]
+    ] = set()
 
-    for query in queries:
-        query_text = optional_text(
-            query
+    for (
+        query_text,
+        fuzzy,
+    ) in queries:
+        query_key = (
+            query_text.casefold(),
+            fuzzy,
         )
-
-        if query_text is None:
-            continue
-
-        query_key = query_text.casefold()
 
         if query_key in used_queries:
             continue
@@ -1029,9 +2021,11 @@ def collect_identity_candidates(
             query_key
         )
 
-        for candidate in search  yfinance_module=yfinance_module,
+        for candidate in search_yahoo(
+            yfinance_module=yfinance_module,
             query=query_text,
             max_results=max_results,
+            enable_fuzzy_query=fuzzy,
         ):
             key = candidate[
                 "symbol"
@@ -1068,9 +2062,9 @@ def candidate_name(
     )
 
 
-def quote_type_is_acceptable(
+def classify_quote_type_evidence(
     candidate: dict[str, Any],
-) -> bool:
+) -> str:
     quote_type = normalize_ascii_text(
         candidate.get(
             "quote_type"
@@ -1078,12 +2072,12 @@ def quote_type_is_acceptable(
     )
 
     if not quote_type:
-        return True
+        return EVIDENCE_UNKNOWN
 
-    return (
-        quote_type
-        in ACCEPTABLE_QUOTE_TYPES
-    )
+    if quote_type in ACCEPTABLE_QUOTE_TYPES:
+        return EVIDENCE_MATCH
+
+    return EVIDENCE_CONTRADICTION
 
 
 def normalize_exchange_token(
@@ -1122,7 +2116,8 @@ def exchange_group(
 
 def candidate_exchange_groups(
     candidate: dict[str, Any],
-) -> setgroups: set[str] = set()
+) -> set[str]:
+    groups: set[str] = set()
 
     for value in (
         candidate.get("exchange"),
@@ -1140,10 +2135,10 @@ def candidate_exchange_groups(
     return groups
 
 
-def exchange_matches_input(
+def classify_exchange_evidence(
     candidate: dict[str, Any],
     input_exchange: str | None,
-) -> bool | None:
+) -> str:
     expected_group = exchange_group(
         input_exchange
     )
@@ -1152,19 +2147,36 @@ def exchange_matches_input(
         candidate
     )
 
-    # Unknown upstream exchange is not treated as either a match
-    # or a contradiction.
     if expected_group is None:
-        return None
+        return EVIDENCE_UNKNOWN
 
-    # Unknown Yahoo exchange is also not treated as a contradiction.
     if not candidate_groups:
-        return None
+        return EVIDENCE_UNKNOWN
 
-    return (
-        expected_group
-        in candidate_groups
+    if expected_group in candidate_groups:
+        return EVIDENCE_MATCH
+
+    return EVIDENCE_CONTRADICTION
+
+
+def classify_exact_symbol_evidence(
+    candidate: dict[str, Any],
+    configured_symbol: str,
+) -> str:
+    result_symbol = (
+        optional_text(
+            candidate.get("symbol")
+        )
+        or ""
     )
+
+    if (
+        result_symbol.casefold()
+        == configured_symbol.casefold()
+    ):
+        return EVIDENCE_MATCH
+
+    return EVIDENCE_CONTRADICTION
 
 
 def candidate_evidence(
@@ -1174,170 +2186,170 @@ def candidate_evidence(
     input_name: str | None,
     input_exchange: str | None,
 ) -> dict[str, Any]:
-    result_symbol = (
-        optional_text(
-            candidate.get("symbol")
-        )
-        or ""
-    )
-
-    expected_name_present = (
-        optional_text(
-            input_name
-        )
-        is not None
-    )
-
     actual_candidate_name = candidate_name(
         candidate
     )
 
-    candidate_name_present = (
-        actual_candidate_name
-        is not None
+    exact_symbol = classify_exact_symbol_evidence(
+        candidate,
+        configured_symbol,
     )
 
-    name_evidence_available = (
-        expected_name_present
-        and candidate_name_present
+    quote_type = classify_quote_type_evidence(
+        candidate
     )
 
-    if name_evidence_available:
-        name_score: float | None = name_similarity(
-            input_name,
-            actual_candidate_name,
-        )
-    else:
-        name_score = None
+    exchange = classify_exchange_evidence(
+        candidate,
+        input_exchange,
+    )
+
+    name = classify_name_evidence(
+        input_name,
+        actual_candidate_name,
+    )
 
     return {
-        "exact_symbol_match": (
-            result_symbol.casefold()
-            == configured_symbol.casefold()
-        ),
-        "exchange_match": exchange_matches_input(
-            candidate,
-            input_exchange,
-        ),
-        "name_score": name_score,
-        "name_evidence_available": (
-            name_evidence_available
-        ),
-        "quote_type_ok": quote_type_is_acceptable(
-            candidate
-        ),
+        "exact_symbol": exact_symbol,
+        "quote_type": quote_type,
+        "exchange": exchange,
+        "name": name,
+        "candidate_name": actual_candidate_name,
     }
 
 
-def direct_candidate_is_valid(
+def evidence_has_material_contradiction(
     evidence: dict[str, Any],
 ) -> bool:
-    # Exact provider symbol is mandatory for automatic download.
-    if not evidence[
-        "exact_symbol_match"
-    ]:
-        return False
-
-    # Explicitly incompatible Yahoo quote types are rejected.
-    if not evidence[
-        "quote_type_ok"
-    ]:
-        return False
-
-    # Known exchange contradiction is fatal.
-    if evidence[
-        "exchange_match"
-    ] is False:
-        return False
-
-    # When both sides provide a name, a strong name contradiction
-    # is fatal even if the ticker itself exists.
-    #
-    # This is the protection against cases such as:
-    #
-    # configured symbol: SAP.TO
-    # Yahoo instrument: Saputo Inc.
-    #
-    # while the upstream instrument is SAP SE.
-    if evidence[
-        "name_evidence_available"
-    ]:
-        name_score = evidence[
-            "name_score"
-        ]
-
-        if (
-            name_score is None
-            or name_score
-            < DIRECT_MIN_NAME_SCORE
-        ):
-            return False
-
-    # Exact symbol alone is not enough.
-    #
-    # At least one independent identity signal must be available:
-    # either a positively mapped exchange or usable name evidence.
-    identity_support = (
-        evidence[
-            "exchange_match"
-        ] is True
-        or evidence[
-            "name_evidence_available"
-        ]
+    return any(
+        evidence.get(field)
+        == EVIDENCE_CONTRADICTION
+        for field in (
+            "quote_type",
+            "exchange",
+            "name",
+        )
     )
 
-    return identity_support
 
-
-def alternative_candidate_score(
+def direct_candidate_is_validated(
     evidence: dict[str, Any],
-) -> float | None:
-    # Alternative discovery concerns only different Yahoo symbols.
-    if evidence[
-        "exact_symbol_match"
-    ]:
-        return None
+) -> bool:
+    """
+    Exact configured symbol with no material identity contradiction.
 
-    if not evidence[
-        "quote_type_ok"
-    ]:
-        return None
+    UNKNOWN evidence never rejects automatic download eligibility.
+    """
 
-    # Explicit exchange contradiction is fatal for an alternative.
-    if evidence[
-        "exchange_match"
-    ] is False:
-        return None
+    if evidence.get(
+        "exact_symbol"
+    ) != EVIDENCE_MATCH:
+        return False
 
-    # Alternative resolution requires positive exchange evidence.
-    #
-    # Unlike the direct path, unknown exchange mapping is not sufficient
-    # because the provider symbol itself differs from the configured one.
-    if evidence[
-        "exchange_match"
-    ] is not True:
-        return None
-
-    # Alternative resolution also requires actual name evidence.
-    if not evidence[
-        "name_evidence_available"
-    ]:
-        return None
-
-    name_score = evidence[
-        "name_score"
-    ]
-
-    if (
-        name_score is None
-        or name_score
-        < SEARCH_MIN_NAME_SCORE
-    ):
-        return None
-
-    return float(
-        name_score
+    return not evidence_has_material_contradiction(
+        evidence
     )
+
+
+def alternative_candidate_is_strong(
+    evidence: dict[str, Any],
+) -> bool:
+    """
+    Strong review-only alternative: clear MATCH on exchange and name.
+
+    Uniqueness of evidence, not a numeric score margin, decides
+    SEARCH_RESOLVED versus IDENTITY_AMBIGUOUS.
+    """
+
+    if evidence.get(
+        "exact_symbol"
+    ) == EVIDENCE_MATCH:
+        return False
+
+    if evidence.get(
+        "quote_type"
+    ) == EVIDENCE_CONTRADICTION:
+        return False
+
+    return (
+        evidence.get("exchange")
+        == EVIDENCE_MATCH
+        and evidence.get("name")
+        == EVIDENCE_MATCH
+    )
+
+
+def exact_contradiction_reason(
+    evidence: dict[str, Any],
+) -> str | None:
+    """
+    Map exact-path material contradictions to identity_reason.
+
+    Priority when several contradictions exist:
+    quote_type > exchange > name.
+    """
+
+    for field_name, reason in EXACT_CONTRADICTION_REASON_PRIORITY:
+        if evidence.get(
+            field_name
+        ) == EVIDENCE_CONTRADICTION:
+            return reason
+
+    return None
+
+
+def exact_identity_signature(
+    candidate: dict[str, Any],
+) -> str:
+    return (
+        (
+            optional_text(
+                candidate.get(
+                    "symbol"
+                )
+            ) or ""
+        ).casefold()
+        + "|"
+        + (
+            optional_text(
+                candidate_name(
+                    candidate
+                )
+            ) or ""
+        ).casefold()
+        + "|"
+        + (
+            optional_text(
+                candidate.get(
+                    "exchange"
+                )
+            ) or ""
+        ).casefold()
+    )
+
+
+def build_identity_decision(
+    *,
+    status: str,
+    resolved_symbol: str | None,
+    selected_candidate: dict[str, Any] | None,
+    selected_evidence: dict[str, Any] | None,
+    search_candidates: list[dict[str, Any]],
+    identity_method: str,
+    identity_reason: str,
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "resolved_symbol": resolved_symbol,
+        "selected_candidate": selected_candidate,
+        "selected_evidence": selected_evidence,
+        "search_candidates": search_candidates,
+        "search_candidate_count": len(
+            search_candidates
+        ),
+        "identity_method": identity_method,
+        "identity_reason": identity_reason,
+    }
 
 
 def validate_or_resolve_identity(
@@ -1350,28 +2362,15 @@ def validate_or_resolve_identity(
         "configured_symbol"
     ]
 
-    candidates = collect_identity_candidates(
+    (
+        exact_list,
+        symbol_query_others,
+        exact_identity_method,
+    ) = lookup_exact_candidates(
         yfinance_module=yfinance_module,
-        instrument=instrument,
+        configured_symbol=configured_symbol,
         max_results=max_results,
     )
-
-    if not candidates:
-        return {
-            "status": IDENTITY_NOT_FOUND_STATUS,
-            "resolved_symbol": None,
-            "selected_candidate": None,
-            "selected_evidence": None,
-            "search_candidates": [],
-            "search_candidate_count": 0,
-        }
-
-    evaluated: list[
-        tuple[
-            dict[str, Any],
-            dict[str, Any],
-        ]
-    ] = []
 
     exact_evaluations: list[
         tuple[
@@ -1380,7 +2379,7 @@ def validate_or_resolve_identity(
         ]
     ] = []
 
-    for candidate in candidates:
+    for candidate in exact_list:
         evidence = candidate_evidence(
             candidate,
             configured_symbol=configured_symbol,
@@ -1392,36 +2391,35 @@ def validate_or_resolve_identity(
             ],
         )
 
-        item = (
-            candidate,
-            evidence,
-        )
-
-        evaluated.append(
-            item
-        )
-
         if evidence[
-            "exact_symbol_match"
-        ]:
-            exact_evaluations.append(
-                item
+            "exact_symbol"
+        ] != EVIDENCE_MATCH:
+            continue
+
+        exact_evaluations.append(
+            (
+                candidate,
+                evidence,
             )
+        )
+
+    exact_method = (
+        exact_identity_method
+        or IDENTITY_METHOD_NONE
+    )
 
     # ------------------------------------------------------------------
     # DIRECT PATH
     # ------------------------------------------------------------------
     #
-    # The exact configured Yahoo symbol has absolute priority.
-    #
-    # A different listing can never beat a valid exact symbol merely
-    # because its textual name similarity happens to be slightly higher.
+    # The exact configured Yahoo symbol has absolute priority over any
+    # search alternative.
 
     if exact_evaluations:
         valid_exact = [
             item
             for item in exact_evaluations
-            if direct_candidate_is_valid(
+            if direct_candidate_is_validated(
                 item[1]
             )
         ]
@@ -1431,47 +2429,25 @@ def validate_or_resolve_identity(
                 0
             ]
 
-            return {
-                "status": DIRECT_VALIDATED_STATUS,
-                "resolved_symbol": candidate[
+            return build_identity_decision(
+                status=DIRECT_VALIDATED_STATUS,
+                resolved_symbol=candidate[
                     "symbol"
                 ],
-                "selected_candidate": candidate,
-                "selected_evidence": evidence,
-                "search_candidates": candidates,
-                "search_candidate_count": len(
-                    candidates
+                selected_candidate=candidate,
+                selected_evidence=evidence,
+                search_candidates=exact_list,
+                identity_method=exact_method,
+                identity_reason=(
+                    IDENTITY_REASON_EXACT_NO_CONTRADICTION
                 ),
-            }
+            )
 
-        # If Yahoo somehow returns more than one exact-symbol record,
-        # automatic validation is allowed only when the valid records
-        # are themselves identity-equivalent.
         if len(valid_exact) > 1:
             signatures = {
-                (
-                    optional_text(
-                        candidate.get(
-                            "symbol"
-                        )
-                    ) or ""
-                ).casefold()
-                + "|"
-                + (
-                    optional_text(
-                        candidate_name(
-                            candidate
-                        )
-                    ) or ""
-                ).casefold()
-                + "|"
-                + (
-                    optional_text(
-                        candidate.get(
-                            "exchange"
-                        )
-                    ) or ""
-                ).casefold()
+                exact_identity_signature(
+                    candidate
+                )
                 for candidate, _ in valid_exact
             }
 
@@ -1480,108 +2456,153 @@ def validate_or_resolve_identity(
                     0
                 ]
 
-                return {
-                    "status": DIRECT_VALIDATED_STATUS,
-                    "resolved_symbol": candidate[
+                return build_identity_decision(
+                    status=DIRECT_VALIDATED_STATUS,
+                    resolved_symbol=candidate[
                         "symbol"
                     ],
-                    "selected_candidate": candidate,
-                    "selected_evidence": evidence,
-                    "search_candidates": candidates,
-                    "search_candidate_count": len(
-                        candidates
+                    selected_candidate=candidate,
+                    selected_evidence=evidence,
+                    search_candidates=exact_list,
+                    identity_method=exact_method,
+                    identity_reason=(
+                        IDENTITY_REASON_EXACT_NO_CONTRADICTION
                     ),
-                }
+                )
 
-        # Important:
-        #
-        # An exact Yahoo symbol may exist but be inconsistent with the
-        # upstream identity. This does NOT allow another listing to become
-        # automatically downloadable.
-        #
-        # Alternatives may still be discovered below, but only as review
-        # candidates.
+        # Exact symbol existed but failed validation, or multiple
+        # incompatible exact records were returned. Alternatives may
+        # still be discovered below for review only.
 
     # ------------------------------------------------------------------
     # ALTERNATIVE DISCOVERY PATH
     # ------------------------------------------------------------------
 
-    alternatives: list[
+    excluded_symbols = {
+        candidate["symbol"].casefold()
+        for candidate in exact_list
+    }
+    excluded_symbols.add(
+        configured_symbol.casefold()
+    )
+
+    alternative_candidates: list[
+        dict[str, Any]
+    ] = []
+    seen_alternative_symbols = set(
+        excluded_symbols
+    )
+
+    for candidate in symbol_query_others:
+        key = candidate[
+            "symbol"
+        ].casefold()
+
+        if key in seen_alternative_symbols:
+            continue
+
+        seen_alternative_symbols.add(
+            key
+        )
+        alternative_candidates.append(
+            candidate
+        )
+
+    alternative_candidates.extend(
+        collect_alternative_candidates(
+            yfinance_module=yfinance_module,
+            instrument=instrument,
+            max_results=max_results,
+            excluded_symbols=seen_alternative_symbols,
+        )
+    )
+
+    candidates = (
+        list(exact_list)
+        + alternative_candidates
+    )
+
+    # IDENTITY_NOT_FOUND means Yahoo provided absolutely no observable
+    # identity after a successful provider response: no exact candidate
+    # and no alternative candidates. Technical Yahoo failures raise
+    # connector exceptions earlier and never reach this branch.
+    # An empty exact_evaluations list while candidates exist is never
+    # NOT_FOUND — that is AMBIGUOUS (or SEARCH_RESOLVED).
+    if not candidates:
+        return build_identity_decision(
+            status=IDENTITY_NOT_FOUND_STATUS,
+            resolved_symbol=None,
+            selected_candidate=None,
+            selected_evidence=None,
+            search_candidates=[],
+            identity_method=IDENTITY_METHOD_NONE,
+            identity_reason=(
+                IDENTITY_REASON_NO_PROVIDER_IDENTITY
+            ),
+        )
+
+    strong_alternatives: list[
         tuple[
-            float,
             dict[str, Any],
             dict[str, Any],
         ]
     ] = []
 
-    for candidate, evidence in evaluated:
-        score = alternative_candidate_score(
-            evidence
+    for candidate in alternative_candidates:
+        evidence = candidate_evidence(
+            candidate,
+            configured_symbol=configured_symbol,
+            input_name=instrument[
+                "input_name"
+            ],
+            input_exchange=instrument[
+                "input_exchange"
+            ],
         )
 
-        if score is None:
+        if evidence[
+            "exact_symbol"
+        ] == EVIDENCE_MATCH:
             continue
 
-        alternatives.append(
-            (
-                score,
-                candidate,
-                evidence,
+        if alternative_candidate_is_strong(
+            evidence
+        ):
+            strong_alternatives.append(
+                (
+                    candidate,
+                    evidence,
+                )
             )
-        )
 
-    if alternatives:
-        alternatives.sort(
-            key=lambda item: (
-                item[0],
-                item[1]["symbol"].casefold(),
+    if len(strong_alternatives) == 1:
+        candidate, evidence = strong_alternatives[
+            0
+        ]
+
+        return build_identity_decision(
+            status=SEARCH_RESOLVED_STATUS,
+            resolved_symbol=candidate[
+                "symbol"
+            ],
+            selected_candidate=candidate,
+            selected_evidence=evidence,
+            search_candidates=candidates,
+            identity_method=(
+                IDENTITY_METHOD_ALTERNATIVE_SEARCH
             ),
-            reverse=True,
+            identity_reason=(
+                IDENTITY_REASON_UNIQUE_STRONG_ALTERNATIVE
+            ),
         )
-
-        (
-            best_score,
-            best_candidate,
-            best_evidence,
-        ) = alternatives[0]
-
-        second_score = (
-            alternatives[1][0]
-            if len(alternatives) > 1
-            else None
-        )
-
-        sufficiently_unique = (
-            second_score is None
-            or (
-                best_score
-                - second_score
-            )
-            >= SEARCH_MIN_MARGIN
-        )
-
-        if sufficiently_unique:
-            return {
-                "status": SEARCH_RESOLVED_STATUS,
-                "resolved_symbol": best_candidate[
-                    "symbol"
-                ],
-                "selected_candidate": best_candidate,
-                "selected_evidence": best_evidence,
-                "search_candidates": candidates,
-                "search_candidate_count": len(
-                    candidates
-                ),
-            }
 
     # ------------------------------------------------------------------
     # AMBIGUOUS
     # ------------------------------------------------------------------
     #
-    # If an exact candidate existed but failed validation, retain it in
-    # metadata so that the reason for rejection remains auditable.
-    #
-    # Never mark that candidate as resolved.
+    # Conflicting alternatives, or exact-path failure without a unique
+    # strong review candidate. Provider candidates existed, so this is
+    # never IDENTITY_NOT_FOUND.
 
     exact_candidate = None
     exact_evidence = None
@@ -1592,16 +2613,35 @@ def validate_or_resolve_identity(
             exact_evidence,
         ) = exact_evaluations[0]
 
-    return {
-        "status": IDENTITY_AMBIGUOUS_STATUS,
-        "resolved_symbol": None,
-        "selected_candidate": exact_candidate,
-        "selected_evidence": exact_evidence,
-        "search_candidates": candidates,
-        "search_candidate_count": len(
-            candidates
-        ),
-    }
+    if len(strong_alternatives) > 1:
+        ambiguous_method = IDENTITY_METHOD_ALTERNATIVE_SEARCH
+        ambiguous_reason = IDENTITY_REASON_MULTIPLE_STRONG_ALTERNATIVES
+
+    elif exact_evaluations:
+        ambiguous_method = exact_method
+        ambiguous_reason = None
+        for _, evidence in exact_evaluations:
+            ambiguous_reason = exact_contradiction_reason(evidence)
+            if ambiguous_reason is not None:
+                break
+        if ambiguous_reason is None:
+            ambiguous_reason = (
+                IDENTITY_REASON_INCONSISTENT_EXACT_CANDIDATES
+            )
+
+    else:
+        ambiguous_method = IDENTITY_METHOD_ALTERNATIVE_SEARCH
+        ambiguous_reason = IDENTITY_REASON_NO_STRONG_ALTERNATIVE
+
+    return build_identity_decision(
+        status=IDENTITY_AMBIGUOUS_STATUS,
+        resolved_symbol=None,
+        selected_candidate=exact_candidate,
+        selected_evidence=exact_evidence,
+        search_candidates=candidates,
+        identity_method=ambiguous_method,
+        identity_reason=ambiguous_reason,
+    )
 
 
 # ============================================================================
@@ -1645,9 +2685,13 @@ def download_market_data(
         )
 
     except Exception as error:
-        raise ConnectorResponseError(
-            "yfinance download failed."
-        ) from error
+        # Same classifier as identity paths. Quote-not-found on an
+        # already DIRECT_VALIDATED symbol is ConnectorResponseError
+        # (inconsistent Yahoo state), not silent success.
+        raise_yahoo_provider_failure(
+            "download",
+            error,
+        )
 
     if (
         dataframe is None
@@ -1827,7 +2871,7 @@ def normalize_single_symbol_frame(
     if "timestamp" not in frame.columns:
         frame = frame.rename(
             columns={
-                frame.columns"timestamp"
+                frame.columns[0]: "timestamp"
             }
         )
 
@@ -1930,7 +2974,7 @@ def normalize_multiindex_frame(
         if "timestamp" not in frame.columns:
             frame = frame.rename(
                 columns={
-                    frame.columns"timestamp"
+                    frame.columns[0]: "timestamp"
                 }
             )
 
@@ -1989,7 +3033,8 @@ def normalize_download_frame(
 
 def market_value_columns(
     dataframe: pd.DataFrame,
-) -> listreturn [
+) -> list[str]:
+    return [
         column
         for column in (
             "open",
@@ -2437,6 +3482,12 @@ class YFinanceConnector(
             ] = {
                 "resolution_status": status,
                 "resolved_symbol": resolved,
+                "identity_method": decision[
+                    "identity_method"
+                ],
+                "identity_reason": decision[
+                    "identity_reason"
+                ],
                 "selected_candidate": decision[
                     "selected_candidate"
                 ],

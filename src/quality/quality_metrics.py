@@ -3,21 +3,9 @@ quality_metrics.py
 
 Phase 4 - Data Quality Framework
 
-Objectif
----------
-Calculer les indicateurs qualité génériques
-à partir d'un dataset fourni en entrée.
-
-KPIs
-----
-- Availability Rate
-- Completeness Rate
-- Uniqueness Rate
-- Freshness Rate
-- Chronology Rate
-- Global Quality Score
-- Global Quality Grade
-- Global Status
+Les KPI reprennent les six contrôles. Le score d'un jeu est la moyenne
+des taux applicables. Le score global est la moyenne des jeux, chaque
+jeu ayant le même poids.
 """
 
 from datetime import datetime
@@ -25,408 +13,150 @@ from datetime import datetime
 import pandas as pd
 
 from src.quality.quality_config import (
+    CONTROL_ORDER,
+    FAIL_RATE,
     GRADE_THRESHOLDS,
-    PASS_THRESHOLD,
-    QUALITY_WEIGHTS,
-    WARNING_THRESHOLD,
-    OPTIONAL_COLUMNS,
+    PASS_RATE,
+    STATUS_RANK,
 )
-
 from src.utils.logger import logger
 
 
-# ============================================================================
-# KPI STATUS
-# ============================================================================
+def control_rate(issues: int, records_checked: int) -> float:
+    if records_checked <= 0:
+        return 0.0
+    score = (1.0 - (issues / records_checked)) * 100.0
+    return round(max(score, 0.0), 2)
 
 
-def calculate_metric_status(
-    score: float,
-) -> str:
-
-    if score >= PASS_THRESHOLD:
-        return "PASS"
-
-    if score >= WARNING_THRESHOLD:
-        return "WARNING"
-
-    return "FAIL"
-
-
-# ============================================================================
-# QUALITY GRADE
-# ============================================================================
-
-
-def calculate_quality_grade(
-    score: float,
-) -> str:
-
+def calculate_quality_grade(score: float) -> str:
     if score >= GRADE_THRESHOLDS["A"]:
         return "A"
-
     if score >= GRADE_THRESHOLDS["B"]:
         return "B"
-
     if score >= GRADE_THRESHOLDS["C"]:
         return "C"
-
     return "D"
 
 
-# ============================================================================
-# AVAILABILITY
-# ============================================================================
+def worst_status(statuses) -> str:
+    ranked = [status for status in statuses if status != "NOT_APPLICABLE"]
+    if not ranked:
+        return "FAIL"
+    return max(ranked, key=lambda status: STATUS_RANK.get(status, 2))
 
 
-def calculate_availability_rate(
-    dataframe: pd.DataFrame,
-) -> float:
+def calculate_quality_metrics(controls: pd.DataFrame) -> dict:
+    """Calcule les KPI à partir des contrôles, sans relire les tables."""
+    logger.info("Quality metrics calculation started")
+    if controls.empty:
+        raise ValueError("Quality controls are empty.")
 
-    return (
-        100.0
-        if not dataframe.empty
-        else 0.0
-    )
+    execution_date = str(controls["execution_date"].iloc[0])
+    dataset_rows = []
+    metric_rows = []
 
+    for dataset_id, dataset_controls in controls.groupby("dataset_id", sort=True):
+        dataset_controls = dataset_controls.set_index("control_name")
+        source_id = dataset_controls["source_id"].iloc[0]
+        table_name = dataset_controls["table_name"].iloc[0]
+        records_checked = int(dataset_controls["records_checked"].max())
+        applicable_rates = []
 
-# ============================================================================
-# COMPLETENESS
-# ============================================================================
-
-
-def calculate_completeness_rate(
-    dataframe: pd.DataFrame,
-) -> float:
-
-    if dataframe.empty:
-        return 0.0
-
-    columns_to_check = [
-        column
-        for column in dataframe.columns
-        if column not in OPTIONAL_COLUMNS
-    ]
-
-    if not columns_to_check:
-        return 100.0
-
-    total_cells = (
-        len(dataframe)
-        * len(columns_to_check)
-    )
-
-    missing_cells = (
-        dataframe[columns_to_check]
-        .isna()
-        .sum()
-        .sum()
-    )
-
-    score = (
-        1
-        - (
-            missing_cells
-            / total_cells
-        )
-    ) * 100
-
-    return round(
-        max(score, 0.0),
-        2,
-    )
-
-# ============================================================================
-# UNIQUENESS
-# ============================================================================
-
-
-def calculate_uniqueness_rate(
-    dataframe: pd.DataFrame,
-) -> float:
-
-    if dataframe.empty:
-        return 0.0
-
-    duplicates = (
-        dataframe
-        .duplicated()
-        .sum()
-    )
-
-    score = (
-        1
-        - (
-            duplicates
-            / len(dataframe)
-        )
-    ) * 100
-
-    return round(
-        max(
-            score,
-            0.0,
-        ),
-        2,
-    )
-
-
-# ============================================================================
-# FRESHNESS
-# ============================================================================
-
-
-def calculate_freshness_rate() -> float:
-    """
-    Placeholder.
-
-    La logique future utilisera :
-    dataset_registry.last_acquisition_date
-    """
-
-    return 100.0
-
-
-# ============================================================================
-# CHRONOLOGY
-# ============================================================================
-
-
-def calculate_chronology_rate(
-    dataframe: pd.DataFrame,
-    chronology_enabled: bool,
-) -> float:
-
-    if not chronology_enabled:
-        return 100.0
-
-    date_columns = [
-        column
-        for column in dataframe.columns
-        if any(
-            keyword in column.lower()
-            for keyword in (
-                "date",
-                "datetime",
-                "timestamp",
+        for control_name in CONTROL_ORDER:
+            row = dataset_controls.loc[control_name]
+            applicable = bool(row["applicable"])
+            issues = int(row["issues"])
+            checked = int(row["records_checked"])
+            rate = control_rate(issues, checked) if applicable else None
+            if applicable:
+                applicable_rates.append(rate)
+            metric_rows.append(
+                {
+                    "dataset_id": dataset_id,
+                    "source_id": source_id,
+                    "table_name": table_name,
+                    "metric": control_name,
+                    "value": rate,
+                    "status": row["status"],
+                    "threshold": PASS_RATE,
+                    "weight": 1.0 if applicable else 0.0,
+                    "applicable": int(applicable),
+                    "records_checked": checked,
+                    "execution_date": execution_date,
+                }
             )
-        )
-    ]
 
-    return (
-        100.0
-        if date_columns
-        else 0.0
-    )
-
-
-# ============================================================================
-# GLOBAL SCORE
-# ============================================================================
-
-
-def calculate_weighted_quality_score(
-    metrics: dict,
-) -> float:
-
-    weighted_score = 0.0
-
-    for metric_name, weight in (
-        QUALITY_WEIGHTS.items()
-    ):
-
-        weighted_score += (
-            metrics.get(
-                metric_name,
-                0.0,
-            )
-            * weight
-        )
-
-    return round(
-        weighted_score,
-        2,
-    )
-
-
-# ============================================================================
-# DATASET METRICS
-# ============================================================================
-
-
-def calculate_dataset_metrics(
-    dataframe: pd.DataFrame,
-    chronology_enabled: bool = False,
-) -> dict:
-
-    return {
-        "Availability Rate":
-            calculate_availability_rate(
-                dataframe
-            ),
-
-        "Completeness Rate":
-            calculate_completeness_rate(
-                dataframe
-            ),
-
-        "Uniqueness Rate":
-            calculate_uniqueness_rate(
-                dataframe
-            ),
-
-        "Freshness Rate":
-            calculate_freshness_rate(),
-
-        "Chronology Rate":
-            calculate_chronology_rate(
-                dataframe=dataframe,
-                chronology_enabled=chronology_enabled,
-            ),
-    }
-
-
-# ============================================================================
-# ORCHESTRATOR
-# ============================================================================
-
-
-def calculate_quality_metrics(
-    dataframe: pd.DataFrame,
-    chronology_enabled: bool = False,
-) -> dict:
-
-    logger.info(
-        "Quality metrics calculation started"
-    )
-
-    records_checked = len(
-        dataframe
-    )
-
-    execution_date = (
-        datetime.now()
-        .strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-    )
-
-    metrics = (
-        calculate_dataset_metrics(
-            dataframe=dataframe,
-            chronology_enabled=chronology_enabled,
-        )
-    )
-
-    global_score = (
-        calculate_weighted_quality_score(
-            metrics
-        )
-    )
-
-    global_grade = (
-        calculate_quality_grade(
-            global_score
-        )
-    )
-
-    global_status = (
-        calculate_metric_status(
-            global_score
-        )
-    )
-
-    records = []
-
-    for metric_name, metric_value in (
-        metrics.items()
-    ):
-
-        records.append(
+        dataset_score = round(sum(applicable_rates) / len(applicable_rates), 2)
+        dataset_status = worst_status(dataset_controls["status"])
+        dataset_rows.append(
             {
-                "metric":
-                    metric_name,
-
-                "value":
-                    metric_value,
-
-                "status":
-                    calculate_metric_status(
-                        metric_value
-                    ),
-
-                "threshold":
-                    PASS_THRESHOLD,
-
-                "records_checked":
-                    records_checked,
-
-                "execution_date":
-                    execution_date,
+                "dataset_id": dataset_id,
+                "source_id": source_id,
+                "table_name": table_name,
+                "records_checked": records_checked,
+                "dataset_quality_score": dataset_score,
+                "dataset_quality_grade": calculate_quality_grade(dataset_score),
+                "dataset_quality_status": dataset_status,
             }
         )
 
-    metrics_dataframe = pd.DataFrame(
-        records
-    )
+    dataset_metrics = pd.DataFrame(dataset_rows)
+    detailed_metrics = pd.DataFrame(metric_rows)
 
-    logger.info(
-        "Records checked: %s",
-        records_checked,
-    )
+    global_rows = []
+    for control_name in CONTROL_ORDER:
+        applicable = detailed_metrics[
+            (detailed_metrics["metric"] == control_name)
+            & (detailed_metrics["applicable"] == 1)
+        ]
+        if applicable.empty:
+            value = None
+            status = "NOT_APPLICABLE"
+        else:
+            value = round(float(applicable["value"].mean()), 2)
+            status = worst_status(applicable["status"])
+        global_rows.append(
+            {
+                "metric": control_name,
+                "value": value if value is not None else 0.0,
+                "status": status,
+                "threshold": PASS_RATE,
+                "records_checked": int(dataset_metrics["records_checked"].sum()),
+                "execution_date": execution_date,
+            }
+        )
 
-    logger.info(
-        "Global Quality Score: %.2f",
-        global_score,
-    )
+    metrics = pd.DataFrame(global_rows)
+    global_score = round(float(dataset_metrics["dataset_quality_score"].mean()), 2)
+    global_grade = calculate_quality_grade(global_score)
+    global_status = worst_status(dataset_metrics["dataset_quality_status"])
+    records_checked = int(dataset_metrics["records_checked"].sum())
 
-    logger.info(
-        "Global Quality Grade: %s",
-        global_grade,
-    )
-
-    logger.info(
-        "Global Quality Status: %s",
-        global_status,
-    )
-
-    logger.info(
-        "Quality metrics calculation completed"
-    )
+    logger.info("Datasets checked: %s", len(dataset_metrics))
+    logger.info("Global Quality Score: %.2f", global_score)
+    logger.info("Global Quality Grade: %s", global_grade)
+    logger.info("Global Quality Status: %s", global_status)
+    logger.info("Quality metrics calculation completed")
 
     return {
-        "metrics":
-            metrics_dataframe,
-
-        "global_quality_score":
-            global_score,
-
-        "global_quality_grade":
-            global_grade,
-
-        "global_quality_status":
-            global_status,
-
-        "records_checked":
-            records_checked,
-
-        "execution_date":
-            execution_date,
+        "metrics": metrics,
+        "dataset_metrics": dataset_metrics,
+        "detailed_metrics": detailed_metrics,
+        "global_quality_score": global_score,
+        "global_quality_grade": global_grade,
+        "global_quality_status": global_status,
+        "records_checked": records_checked,
+        "datasets_checked": int(len(dataset_metrics)),
+        "execution_date": execution_date,
+        "fail_rate": FAIL_RATE,
     }
 
 
-# ============================================================================
-# MAIN
-# ============================================================================
-
-
 def main():
-
-    print(
-        "quality_metrics.py loaded successfully"
-    )
+    print("quality_metrics.py loaded successfully")
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 if __name__ == "__main__":
-
     main()

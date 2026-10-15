@@ -18,6 +18,10 @@ yahoo_suffix
     Yahoo Finance exchange suffix used to construct market-data
     symbols.
 
+listing_currency
+    ISO currency of the listing venue. This is not the benchmark
+    holdings currency and not the SNB quotation code.
+
 Design principles
 -----------------
 - the benchmark exchange label is the internal reference key;
@@ -42,118 +46,147 @@ EXCHANGE_MAPPING = {
     "NASDAQ": {
         "openfigi": "US",
         "yahoo_suffix": "",
+        "listing_currency": "USD",
     },
     "NYSE": {
         "openfigi": "US",
         "yahoo_suffix": "",
+        "listing_currency": "USD",
     },
     "SIX Swiss Exchange": {
         "openfigi": "SW",
         "yahoo_suffix": ".SW",
+        "listing_currency": "CHF",
     },
     "London Stock Exchange": {
         "openfigi": "LN",
         "yahoo_suffix": ".L",
+        "listing_currency": "GBP",
     },
     "Hong Kong Exchanges And Clearing Ltd": {
         "openfigi": "HK",
         "yahoo_suffix": ".HK",
+        "listing_currency": "HKD",
     },
     "Tokyo Stock Exchange": {
         "openfigi": "JP",
         "yahoo_suffix": ".T",
+        "listing_currency": "JPY",
     },
     "Taiwan Stock Exchange": {
         "openfigi": "TT",
         "yahoo_suffix": ".TW",
+        "listing_currency": "TWD",
     },
     "Toronto Stock Exchange": {
         "openfigi": "CN",
         "yahoo_suffix": ".TO",
+        "listing_currency": "CAD",
     },
     "Shanghai Stock Exchange": {
         "openfigi": "CH",
         "yahoo_suffix": ".SS",
+        "listing_currency": "CNY",
     },
     "Shenzhen Stock Exchange": {
         "openfigi": "SZ",
         "yahoo_suffix": ".SZ",
+        "listing_currency": "CNY",
     },
     "Singapore Exchange": {
         "openfigi": "SP",
         "yahoo_suffix": ".SI",
+        "listing_currency": "SGD",
     },
     "National Stock Exchange Of India": {
         "openfigi": "IN",
         "yahoo_suffix": ".NS",
+        "listing_currency": "INR",
     },
     "Korea Exchange (Stock Market)": {
         "openfigi": "KS",
         "yahoo_suffix": ".KS",
+        "listing_currency": "KRW",
     },
     "Korea Exchange (Kosdaq)": {
         "openfigi": "KQ",
         "yahoo_suffix": ".KQ",
+        "listing_currency": "KRW",
     },
     "Xetra": {
         "openfigi": "GY",
         "yahoo_suffix": ".DE",
+        "listing_currency": "EUR",
     },
     "Bolsa De Madrid": {
         "openfigi": "SM",
         "yahoo_suffix": ".MC",
+        "listing_currency": "EUR",
     },
     "Bolsa Mexicana De Valores": {
         "openfigi": "MM",
         "yahoo_suffix": ".MX",
+        "listing_currency": "MXN",
     },
     "Oslo Bors Asa": {
         "openfigi": "NO",
         "yahoo_suffix": ".OL",
+        "listing_currency": "NOK",
     },
     "Nasdaq Omx Nordic": {
         "openfigi": "SS",
         "yahoo_suffix": ".ST",
+        "listing_currency": "SEK",
     },
     "Omx Nordic Exchange Copenhagen A/S": {
         "openfigi": "DC",
         "yahoo_suffix": ".CO",
+        "listing_currency": "DKK",
     },
     "Nyse Euronext - Euronext Paris": {
         "openfigi": "FP",
         "yahoo_suffix": ".PA",
+        "listing_currency": "EUR",
     },
     "Nyse Euronext - Euronext Brussels": {
         "openfigi": "BB",
         "yahoo_suffix": ".BR",
+        "listing_currency": "EUR",
     },
     "Nyse Euronext - Euronext Lisbon": {
         "openfigi": "PL",
         "yahoo_suffix": ".LS",
+        "listing_currency": "EUR",
     },
     "Wiener Boerse Ag": {
         "openfigi": "AV",
         "yahoo_suffix": ".VI",
+        "listing_currency": "EUR",
     },
     "Johannesburg Stock Exchange": {
         "openfigi": "SJ",
         "yahoo_suffix": ".JO",
+        "listing_currency": "ZAR",
     },
     "Tel Aviv Stock Exchange": {
         "openfigi": "IT",
         "yahoo_suffix": ".TA",
+        "listing_currency": "ILS",
     },
     "Saudi Stock Exchange": {
         "openfigi": "AB",
         "yahoo_suffix": ".SR",
+        "listing_currency": "SAR",
     },
     "Borsa Italiana": {
         "openfigi": "IM",
         "yahoo_suffix": ".MI",
+        "listing_currency": "EUR",
     },
     "Asx - All Markets": {
         "openfigi": "AU",
         "yahoo_suffix": ".AX",
+        "listing_currency": "AUD",
     },
 }
 
@@ -291,6 +324,46 @@ def get_openfigi_exchange_code(
 
 
 # ============================================================================
+# LISTING CURRENCY
+# ============================================================================
+
+def get_listing_currency(
+    exchange: str,
+) -> str | None:
+    """
+    Return the ISO listing currency of a benchmark exchange.
+
+    The value is the venue currency, such as JPY or USD.
+    It is not the benchmark holdings currency and not an SNB
+    quotation code such as JPY100.
+
+    Returns None when no mapping exists.
+    """
+
+    configuration = (
+        get_exchange_configuration(
+            exchange
+        )
+    )
+
+    if configuration is None:
+        return None
+
+    value = configuration.get(
+        "listing_currency"
+    )
+
+    if value is None:
+        return None
+
+    normalized = str(
+        value
+    ).strip()
+
+    return normalized or None
+
+
+# ============================================================================
 # YAHOO FINANCE
 # ============================================================================
 
@@ -410,10 +483,12 @@ def validate_exchange_mapping() -> None:
     --------
     - mapping cannot be empty;
     - benchmark exchange labels must be unique case-insensitively;
-    - every entry must contain openfigi and yahoo_suffix;
+    - every entry must contain openfigi, yahoo_suffix
+      and listing_currency;
     - OpenFIGI values cannot be blank;
     - Yahoo suffix cannot be None;
-    - populated Yahoo suffixes must start with a period.
+    - populated Yahoo suffixes must start with a period;
+    - listing_currency must be a three-letter ISO code.
     """
 
     if not EXCHANGE_MAPPING:
@@ -426,6 +501,7 @@ def validate_exchange_mapping() -> None:
     required_provider_keys = {
         "openfigi",
         "yahoo_suffix",
+        "listing_currency",
     }
 
     for (
@@ -523,6 +599,35 @@ def validate_exchange_mapping() -> None:
                 "start with '.': "
                 f"{exchange} -> "
                 f"{normalized_suffix}"
+            )
+
+        listing_currency = configuration[
+            "listing_currency"
+        ]
+
+        if not isinstance(
+            listing_currency,
+            str,
+        ):
+            raise ValueError(
+                "Listing currency must be a "
+                f"three-letter ISO code: {exchange}"
+            )
+
+        normalized_currency = (
+            listing_currency.strip()
+        )
+
+        if (
+            len(normalized_currency) != 3
+            or not normalized_currency.isalpha()
+            or not normalized_currency.isupper()
+        ):
+            raise ValueError(
+                "Listing currency must be a "
+                "three-letter ISO code: "
+                f"{exchange} -> "
+                f"{normalized_currency}"
             )
 
 

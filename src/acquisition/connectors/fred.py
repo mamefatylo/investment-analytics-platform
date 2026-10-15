@@ -814,7 +814,7 @@ def request_json(
                 else ""
             )
 
-            raise ConnectorTransportError(
+            raise ConnectorResponseError(
                 "FRED request failed with "
                 f"HTTP {status_code}."
                 f"{detail}"
@@ -972,7 +972,7 @@ def validate_response_contract(
         "offset",
     )
 
-    limit = parse_agination_integer(
+    limit = parse_pagination_integer(
         payload,
         "limit",
     )
