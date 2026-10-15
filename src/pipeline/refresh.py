@@ -12,7 +12,8 @@ Order
 3. Fetch a quote currency only for a master symbol that is not stored yet.
 4. Rebuild the CHF prices, the CHF universe and the treated SARON.
 5. Rebuild the three portfolios on the latest SARON window.
-6. Rebuild the quality control center from the loaded tables.
+6. Describe the allocation, exposure and concentration of those weights.
+7. Rebuild the quality control center from the loaded tables.
 """
 
 import argparse
@@ -34,6 +35,7 @@ from src.governance.source_registry import (
     get_active_datasets,
 )
 from src.portfolio_construction.build_portfolios import build_portfolios
+from src.portfolio_monitoring.build_monitoring import build_monitoring
 from src.preparation.odd_assessment import build_odd_assessment
 from src.preparation.quality_treatment import build_quality_treatment
 from src.preparation.quote_currency import complete_quote_currencies
@@ -238,6 +240,8 @@ def refresh(force=False):
     logger.info("Treated datasets: %s", len(treated))
     portfolios = build_portfolios()
     logger.info("Portfolio files: %s", len(portfolios))
+    monitoring = build_monitoring()
+    logger.info("Monitoring files: %s", len(monitoring))
     report = build_data_control_center()
     logger.info("Quality report: %s", report)
     return {

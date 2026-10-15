@@ -1,0 +1,31 @@
+strategy,rank,yahoo_symbol,ticker,name,weight,sector,zone,exposure
+equal_weight,1,000895.SZ,000895,HENAN SHUANGHUI INVESTMENT & DEVEL,0.0120481927710843,Consumer Staples,Asie-Pacifique,Actions
+equal_weight,2,0012.HK,12,HENDERSON LAND DEVELOPMENT LTD,0.0120481927710843,Real Estate,Asie-Pacifique,Actions
+equal_weight,3,001979.SZ,001979,CHINA MERCHANTS SHEKOU INDUSTRIAL,0.0120481927710843,Real Estate,Asie-Pacifique,Actions
+equal_weight,4,002129.SZ,002129,TCL ZHONGHUAN RENEWABLE ENERGY TEC,0.0120481927710843,Information Technology,Asie-Pacifique,Actions
+equal_weight,5,002202.SZ,002202,GOLDWIND SCIENCE&TECHNOLOGY LTD A,0.0120481927710843,Industrials,Asie-Pacifique,Actions
+equal_weight,6,0066.HK,66,MTR CORPORATION,0.0120481927710843,Industrials,Asie-Pacifique,Actions
+equal_weight,7,010120.KS,010120,LS ELECTRIC LTD,0.0120481927710843,Industrials,Asie-Pacifique,Actions
+equal_weight,8,0288.HK,288,WH GROUP,0.0120481927710843,Consumer Staples,Asie-Pacifique,Actions
+equal_weight,9,0322.HK,322,TINGYI (CAYMAN ISLANDS) HOLDINGS,0.0120481927710843,Consumer Staples,Asie-Pacifique,Actions
+equal_weight,10,0916.HK,916,CHINA LONGYUAN POWER GROUP H,0.0120481927710843,Utilities,Asie-Pacifique,Actions
+minimum_volatility,1,SPSN.SW,SPSN,SWISS PRIME SITE AG,0.1488735806282663,Real Estate,Europe,Actions
+minimum_volatility,2,8951.T,8951,NIPPON BUILDING FUND REIT,0.1100231740541951,Real Estate,Asie-Pacifique,Actions
+minimum_volatility,3,SAP.TO,SAP,SAPUTO,0.0875735320428829,Consumer Staples,Amériques,Actions
+minimum_volatility,4,8113.T,8113,UNICHARM,0.08421281369303,Consumer Staples,Asie-Pacifique,Actions
+minimum_volatility,5,000895.SZ,000895,HENAN SHUANGHUI INVESTMENT & DEVEL,0.0840447785621838,Consumer Staples,Asie-Pacifique,Actions
+minimum_volatility,6,REC.MI,REC,RECORDATI INDUSTRIA CHIMICA E FARM,0.061004619476223,Health Care,Europe,Actions
+minimum_volatility,7,3898.HK,3898,ZHUZHOU CRRC TIMES ELECTRIC LTD H,0.046344359689409,Industrials,Asie-Pacifique,Actions
+minimum_volatility,8,NOVN.SW,NOVN,NOVARTIS AG,0.0357950750945747,Health Care,Europe,Actions
+minimum_volatility,9,0288.HK,288,WH GROUP,0.0316427985082147,Consumer Staples,Asie-Pacifique,Actions
+minimum_volatility,10,DLR,DLR,DIGITAL REALTY TRUST REIT,0.0315584934718295,Real Estate,Amériques,Actions
+maximum_sharpe,1,NVDA,NVDA,NVIDIA,0.1965902441705061,Information Technology,Amériques,Actions
+maximum_sharpe,2,ELI.BR,ELI,ELIA GROUP SA,0.1256976597501097,Utilities,Europe,Actions
+maximum_sharpe,3,VRTX,VRTX,VERTEX PHARMACEUTICALS,0.1185576221039413,Health Care,Amériques,Actions
+maximum_sharpe,4,ARGX.BR,ARGX,ARGENX,0.1145364023095705,Health Care,Europe,Actions
+maximum_sharpe,5,NOVN.SW,NOVN,NOVARTIS AG,0.1036972688433692,Health Care,Europe,Actions
+maximum_sharpe,6,300274.SZ,300274,SUNGROW POWER SUPPLY LTD A,0.0653469246335831,Industrials,Asie-Pacifique,Actions
+maximum_sharpe,7,UTHR,UTHR,UNITED THERAPEUTICS,0.0407914512869775,Health Care,Amériques,Actions
+maximum_sharpe,8,VER.VI,VER,VERBUND AG,0.0361243788626037,Utilities,Europe,Actions
+maximum_sharpe,9,TAL,TAL,TAL EDUCATION GROUP ADR REPTG,0.0352435168105338,Consumer Discretionary,Asie-Pacifique,Actions
+maximum_sharpe,10,010120.KS,010120,LS ELECTRIC LTD,0.0337932997454129,Industrials,Asie-Pacifique,Actions
