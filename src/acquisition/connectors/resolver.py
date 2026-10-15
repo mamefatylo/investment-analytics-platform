@@ -66,7 +66,7 @@ def normalize_connector_name(
     --------------
     fred
     openfigi
-    alpha_vantage
+    snb
     yfinance
 
     Invalid examples

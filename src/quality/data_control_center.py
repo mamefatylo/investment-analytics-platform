@@ -21,7 +21,7 @@ Feuilles
 - Quality History
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -31,6 +31,14 @@ from openpyxl import load_workbook
 from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.axis import DateAxis
 from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.layout import Layout, ManualLayout
+from openpyxl.chart.text import RichText
+from openpyxl.drawing.text import (
+    CharacterProperties,
+    Paragraph,
+    ParagraphProperties,
+    RichTextProperties,
+)
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -63,6 +71,13 @@ EXPECTED_SHEETS = [
 
 PASS_THRESHOLD = 95.0
 WARNING_THRESHOLD = 80.0
+
+KPI_CHART_ANCHOR = "A16"
+KPI_CHART_WIDTH = 24
+KPI_CHART_HEIGHT = 13
+HISTORY_CHART_WIDTH = 24
+HISTORY_CHART_HEIGHT = 12
+CHART_VALUE_AXIS_MAX = 115
 
 HEADER_FILL = PatternFill(
     fill_type="solid",
@@ -140,10 +155,12 @@ def validate_quality_results(
 
     required_keys = {
         "metrics",
+        "detailed_metrics",
         "global_quality_score",
         "global_quality_grade",
         "global_quality_status",
         "records_checked",
+        "datasets_checked",
         "execution_date",
     }
 
@@ -254,6 +271,8 @@ def build_dashboard_summary(
             {
                 "run_id": run_id,
                 "execution_date": execution_date,
+                "datasets_checked":
+                    quality_results["datasets_checked"],
                 "records_checked":
                     quality_results[
                         "records_checked"
@@ -347,6 +366,8 @@ def build_quality_issues(
     issue_columns = [
         "issue_id",
         "run_id",
+        "dataset_id",
+        "table_name",
         "control_id",
         "control_name",
         "severity",
@@ -397,6 +418,10 @@ def build_quality_issues(
                     f"{run_id}-ISS-{index + 1:03d}",
                 "run_id":
                     run_id,
+                "dataset_id":
+                    row["dataset_id"],
+                "table_name":
+                    row["table_name"],
                 "control_id":
                     row["control_id"],
                 "control_name":
@@ -442,10 +467,12 @@ def load_history() -> pd.DataFrame:
         "run_id",
         "execution_date",
         "records_checked",
-        "availability_rate",
-        "completeness_rate",
-        "uniqueness_rate",
-        "freshness_rate",
+        "datasets_checked",
+        "missing_value_rate",
+        "duplicate_rate",
+        "outlier_rate",
+        "format_rate",
+        "currency_rate",
         "chronology_rate",
         "global_quality_score",
         "global_quality_grade",
@@ -496,14 +523,18 @@ def load_history() -> pd.DataFrame:
             "Quality History."
         ) from error
 
-    for column in history_columns:
+    if "missing_value_rate" not in history.columns:
+        logger.info(
+            "Previous quality history uses another score definition. "
+            "A new history is started."
+        )
+        return pd.DataFrame(columns=history_columns)
 
+    for column in history_columns:
         if column not in history.columns:
             history[column] = None
 
-    return history[
-        history_columns
-    ]
+    return history[history_columns]
 
 
 def get_metric_value(
@@ -556,35 +587,26 @@ def update_history(
                 "records_checked"
             ],
 
-        "availability_rate":
-            get_metric_value(
-                metrics,
-                "Availability Rate",
-            ),
+        "datasets_checked":
+            quality_results["datasets_checked"],
 
-        "completeness_rate":
-            get_metric_value(
-                metrics,
-                "Completeness Rate",
-            ),
+        "missing_value_rate":
+            get_metric_value(metrics, "Valeurs manquantes"),
 
-        "uniqueness_rate":
-            get_metric_value(
-                metrics,
-                "Uniqueness Rate",
-            ),
+        "duplicate_rate":
+            get_metric_value(metrics, "Doublons"),
 
-        "freshness_rate":
-            get_metric_value(
-                metrics,
-                "Freshness Rate",
-            ),
+        "outlier_rate":
+            get_metric_value(metrics, "Valeurs aberrantes"),
+
+        "format_rate":
+            get_metric_value(metrics, "Formats incorrects"),
+
+        "currency_rate":
+            get_metric_value(metrics, "Cohérence des devises"),
 
         "chronology_rate":
-            get_metric_value(
-                metrics,
-                "Chronology Rate",
-            ),
+            get_metric_value(metrics, "Chronologie"),
 
         "global_quality_score":
             quality_results[
@@ -937,77 +959,6 @@ def format_issues_sheet(
 ) -> None:
     """
     Met en forme la feuille Quality Issues.
-    """
-
-    worksheet.freeze_panes = "A2"
-
-    worksheet.auto_filter.ref = (
-        worksheet.dimensions
-    )
-
-    style_header_row(
-        worksheet,
-        row_number=1,
-        max_column=worksheet.max_column,
-    )
-
-    headers = {
-        cell.value: cell.column
-        for cell in worksheet[1]
-    }
-
-    severity_column = headers.get(
-        "severity"
-    )
-
-    if severity_column:
-
-        column_letter = get_column_letter(
-            severity_column
-        )
-
-        cell_range = (
-            f"{column_letter}2:"
-            f"{column_letter}{worksheet.max_row}"
-        )
-
-        worksheet.conditional_formatting.add(
-            cell_range,
-            CellIsRule(
-                operator="equal",
-                formula=['"HIGH"'],
-                fill=HIGH_FILL,
-            ),
-        )
-
-        worksheet.conditional_formatting.add(
-            cell_range,
-            CellIsRule(
-                operator="equal",
-                formula=['"MEDIUM"'],
-                fill=MEDIUM_FILL,
-            ),
-        )
-
-        worksheet.conditional_formatting.add(
-            cell_range,
-            CellIsRule(
-                operator="equal",
-                formula=['"LOW"'],
-                fill=LOW_FILL,
-            ),
-        )
-
-    set_column_widths(
-        worksheet
-    )
-
-
-def format_issues_sheet(
-    worksheet: Worksheet,
-) -> None:
-    """
-    Met en forme la feuille Quality Issues.
 
     La mise en forme conditionnelle des sévérités
     est appliquée uniquement lorsque la feuille
@@ -1174,6 +1125,45 @@ def format_history_sheet(
 # ============================================================================
 
 
+def apply_chart_frame(chart, rotate_categories=False) -> None:
+    """Keep the title and axis titles outside the plot."""
+
+    if chart.title is not None and hasattr(chart.title, "overlay"):
+        chart.title.overlay = False
+
+    for axis in (chart.x_axis, chart.y_axis):
+        axis_title = getattr(axis, "title", None)
+        if axis_title is not None and hasattr(axis_title, "overlay"):
+            axis_title.overlay = False
+
+    chart.layout = Layout(
+        manualLayout=ManualLayout(
+            xMode="edge",
+            yMode="edge",
+            x=0.14,
+            y=0.20,
+            w=0.80,
+            h=0.58,
+        )
+    )
+
+    if rotate_categories:
+        chart.x_axis.txPr = RichText(
+            bodyPr=RichTextProperties(
+                rot="-2700000",
+                anchor="ctr",
+            ),
+            p=[
+                Paragraph(
+                    pPr=ParagraphProperties(
+                        defRPr=CharacterProperties(sz=900)
+                    ),
+                    endParaRPr=CharacterProperties(sz=900),
+                )
+            ],
+        )
+
+
 def create_kpi_chart(
     worksheet: Worksheet,
     header_row: int,
@@ -1206,11 +1196,11 @@ def create_kpi_chart(
 
     chart.y_axis.scaling.min = 0
 
-    chart.y_axis.scaling.max = 100
+    chart.y_axis.scaling.max = CHART_VALUE_AXIS_MAX
 
-    chart.height = 9
+    chart.height = KPI_CHART_HEIGHT
 
-    chart.width = 18
+    chart.width = KPI_CHART_WIDTH
 
     data = Reference(
         worksheet,
@@ -1247,9 +1237,14 @@ def create_kpi_chart(
 
     chart.dataLabels.showVal = True
 
+    apply_chart_frame(
+        chart,
+        rotate_categories=True,
+    )
+
     worksheet.add_chart(
         chart,
-        "H2",
+        KPI_CHART_ANCHOR,
     )
 
 
@@ -1312,11 +1307,11 @@ def create_history_chart(
 
     chart.y_axis.scaling.min = 0
 
-    chart.y_axis.scaling.max = 100
+    chart.y_axis.scaling.max = CHART_VALUE_AXIS_MAX
 
-    chart.height = 10
+    chart.height = HISTORY_CHART_HEIGHT
 
-    chart.width = 19
+    chart.width = HISTORY_CHART_WIDTH
 
     data = Reference(
         worksheet,
@@ -1359,9 +1354,11 @@ def create_history_chart(
 
         series.marker.size = 7
 
+    apply_chart_frame(chart)
+
     worksheet.add_chart(
         chart,
-        "N2",
+        f"A{worksheet.max_row + 3}",
     )
 
 
@@ -1520,6 +1517,104 @@ def finalize_workbook(
     )
 
 
+def persist_quality_results(
+    run_id: str,
+    execution_date: str,
+    controls: pd.DataFrame,
+    quality_results: dict,
+) -> None:
+    """Écrit le rapport, les contrôles et les KPI dans les tables qualité."""
+    created_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    issues_detected = int(controls["status"].isin(["WARNING", "FAIL"]).sum())
+    connection = sqlite3.connect(DATABASE_FILE)
+    connection.execute("PRAGMA foreign_keys = ON")
+    try:
+        connection.execute("BEGIN")
+        connection.execute(
+            """
+            INSERT INTO quality_run (
+                run_id, execution_date, datasets_checked, records_checked,
+                controls_executed, issues_detected, global_quality_score,
+                global_quality_grade, global_status, notes, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                execution_date,
+                int(quality_results["datasets_checked"]),
+                int(quality_results["records_checked"]),
+                int(len(controls)),
+                issues_detected,
+                float(quality_results["global_quality_score"]),
+                quality_results["global_quality_grade"],
+                quality_results["global_quality_status"],
+                "Contrôles de la phase 4 : valeurs manquantes, doublons, "
+                "valeurs aberrantes, formats, devises, chronologie.",
+                created_at,
+            ),
+        )
+        connection.executemany(
+            """
+            INSERT INTO quality_control_result (
+                run_id, dataset_id, source_id, table_name, control_id,
+                control_name, status, issues, records_checked, notes,
+                execution_date, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    run_id,
+                    row.dataset_id,
+                    row.source_id,
+                    row.table_name,
+                    row.control_id,
+                    row.control_name,
+                    row.status,
+                    int(row.issues),
+                    int(row.records_checked),
+                    row.notes,
+                    execution_date,
+                    created_at,
+                )
+                for row in controls.itertuples(index=False)
+            ],
+        )
+        detailed = quality_results["detailed_metrics"]
+        connection.executemany(
+            """
+            INSERT INTO quality_metric_result (
+                run_id, dataset_id, source_id, table_name, metric_name,
+                metric_value, metric_status, threshold, weight, applicable,
+                records_checked, execution_date, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    run_id,
+                    row.dataset_id,
+                    row.source_id,
+                    row.table_name,
+                    row.metric,
+                    None if pd.isna(row.value) else float(row.value),
+                    row.status,
+                    float(row.threshold),
+                    float(row.weight),
+                    int(row.applicable),
+                    int(row.records_checked),
+                    execution_date,
+                    created_at,
+                )
+                for row in detailed.itertuples(index=False)
+            ],
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
 # ============================================================================
 # DATA CONTROL CENTER
 # ============================================================================
@@ -1547,37 +1642,23 @@ def build_data_control_center() -> Path:
 
     try:
 
-        controls = (
-            run_quality_checks()
+        controls = run_quality_checks(
+            execution_date=execution_date
         )
 
         validate_controls(
             controls
         )
 
-        connection = sqlite3.connect(
-            DATABASE_FILE
+        quality_results = calculate_quality_metrics(
+            controls
         )
 
-        try:
-
-            dataframe = pd.read_sql(
-                """
-                SELECT *
-                FROM securities_master
-                """,
-                connection,
-            )
-
-        finally:
-
-            connection.close()
-
-        quality_results = (
-            calculate_quality_metrics(
-                dataframe=dataframe,
-                chronology_enabled=False,
-            )
+        persist_quality_results(
+            run_id,
+            execution_date,
+            controls,
+            quality_results,
         )
 
         validate_quality_results(

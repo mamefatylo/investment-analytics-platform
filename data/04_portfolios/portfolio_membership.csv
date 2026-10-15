@@ -1,0 +1,121 @@
+yahoo_symbol,ticker,name,exchange,listing_currency,decision,reason,available_price_months,required_price_months
+1216.TW,1216,UNI-PRESIDENT ENTERPRISES,Taiwan Stock Exchange,TWD,excluded,no_snb_series,0,121
+1801.HK,1801,INNOVENT BIOLOGICS,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,96,121
+2015.HK,2015,LI AUTO CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,62,121
+2082.SR,2082,ACWA POWER CO,Saudi Stock Exchange,SAR,excluded,no_snb_series,0,121
+247540.KQ,247540,ECOPRO BM LTD,Korea Exchange (Kosdaq),KRW,excluded,incomplete_monthly_history,91,121
+300750.SZ,300750,CONTEMPORARY AMPEREX TECHNOLOGY A,Shenzhen Stock Exchange,CNY,excluded,incomplete_monthly_history,100,121
+301358.SZ,301358,HUNAN YUNENG NEW ENERGY BATTERY MA,Shenzhen Stock Exchange,CNY,excluded,incomplete_monthly_history,44,121
+3692.HK,3692,HANSOH PHARMACEUTICAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,88,121
+373220.KS,373220,LG ENERGY SOLUTION LTD,Korea Exchange (Stock Market),KRW,excluded,incomplete_monthly_history,57,121
+3750.HK,3750,CONTEMPORARY AMPEREX TECHNOLOGY CL,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,17,121
+600905.SS,600905,CHINA THREE GORGES RENEWABLES(GROU,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,64,121
+605117.SS,605117,NINGBO DEYE TECHNOLOGY CORP A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,66,121
+6160.HK,6160,BEONE MEDICINES AG,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,98,121
+6446.TW,6446,PHARMAESSENTIA,Taiwan Stock Exchange,TWD,excluded,no_snb_series,0,121
+6669.TW,6669,WIWYNN CORPORATION,Taiwan Stock Exchange,TWD,excluded,no_snb_series,0,121
+688187.SS,688187,ZHUZHOU CRRC TIMES ELECTRIC LTD A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,61,121
+688472.SS,688472,CSI SOLAR LTD A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,40,121
+688578.SS,688578,SHANGHAI ALLIST PHARMACEUTICALS LT,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,70,121
+9633.HK,9633,NONGFU SPRING LTD H,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,73,121
+9698.HK,9698,GDS HOLDINGS CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,71,121
+9863.HK,9863,ZHEJIANG LEAPMOTOR TECHNOLOGY LTD,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,49,121
+9866.HK,9866,NIO CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,55,121
+9868.HK,9868,XPENG CLASS A INC,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,63,121
+9901.HK,9901,NEW ORIENTAL EDUCATION & TECHNOLOG,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,71,121
+CICT.SI,CICT,CAPITALAND INTEGRATED COMMERCIAL T,Singapore Exchange,SGD,excluded,no_price_history,0,121
+CLAR.SI,CLAR,CAPITALAND ASCENDAS REIT,Singapore Exchange,SGD,excluded,no_price_history,0,121
+COLPAL.NS,COLPAL,COLGATE PALMOLIVE INDIA LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,0,121
+ENLT.TA,ENLT,ENLIGHT RENEWABLE ENERGY,Tel Aviv Stock Exchange,ILS,excluded,no_snb_series,0,121
+ESSITY-B.ST,ESSITY B,ESSITY CLASS B,Nasdaq Omx Nordic,SEK,excluded,incomplete_monthly_history,112,121
+HINDUNILVR.NS,HINDUNILVR,HINDUSTAN UNILEVER LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,0,121
+LODHA.NS,LODHA,LODHA DEVELOPERS LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,0,121
+LUPIN.NS,LUPIN,LUPIN,National Stock Exchange Of India,INR,excluded,no_snb_series,0,121
+NESTLEIND.NS,NESTLEIND,NESTLE INDIA LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,0,121
+ORSTED.CO,ORSTED,ORSTED A/S,Omx Nordic Exchange Copenhagen A/S,DKK,excluded,no_price_history,0,121
+RIVN,RIVN,RIVIAN AUTOMOTIVE INC CLASS A,NASDAQ,USD,excluded,incomplete_monthly_history,59,121
+SUZLON.NS,SUZLON,SUZLON ENERGY,National Stock Exchange Of India,INR,excluded,no_snb_series,0,121
+URW.PA,URW,UNIBAIL RODAMCO WE STAPLED UNITS,Nyse Euronext - Euronext Paris,EUR,excluded,incomplete_monthly_history,42,121
+000895.SZ,000895,HENAN SHUANGHUI INVESTMENT & DEVEL,Shenzhen Stock Exchange,CNY,included,,121,121
+0012.HK,12,HENDERSON LAND DEVELOPMENT LTD,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+001979.SZ,001979,CHINA MERCHANTS SHEKOU INDUSTRIAL,Shenzhen Stock Exchange,CNY,included,,121,121
+002129.SZ,002129,TCL ZHONGHUAN RENEWABLE ENERGY TEC,Shenzhen Stock Exchange,CNY,included,,121,121
+002202.SZ,002202,GOLDWIND SCIENCE&TECHNOLOGY LTD A,Shenzhen Stock Exchange,CNY,included,,121,121
+0066.HK,66,MTR CORPORATION,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+010120.KS,010120,LS ELECTRIC LTD,Korea Exchange (Stock Market),KRW,included,,121,121
+0288.HK,288,WH GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+0322.HK,322,TINGYI (CAYMAN ISLANDS) HOLDINGS,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+0916.HK,916,CHINA LONGYUAN POWER GROUP H,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+1044.HK,1044,HENGAN INTERNATIONAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+1093.HK,1093,CSPC PHARMACEUTICAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+1585.HK,1585,YADEA GROUP HOLDINGS,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+2319.HK,2319,CHINA MENGNIU DAIRY LTD,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+300274.SZ,300274,SUNGROW POWER SUPPLY LTD A,Shenzhen Stock Exchange,CNY,included,,121,121
+3898.HK,3898,ZHUZHOU CRRC TIMES ELECTRIC LTD H,Hong Kong Exchanges And Clearing Ltd,HKD,included,,121,121
+4151.T,4151,KYOWA KIRIN LTD,Tokyo Stock Exchange,JPY,included,,121,121
+4507.T,4507,SHIONOGI,Tokyo Stock Exchange,JPY,included,,121,121
+4519.T,4519,CHUGAI PHARMACEUTICAL LTD,Tokyo Stock Exchange,JPY,included,,121,121
+4523.T,4523,EISAI,Tokyo Stock Exchange,JPY,included,,121,121
+4543.T,4543,TERUMO,Tokyo Stock Exchange,JPY,included,,121,121
+4568.T,4568,DAIICHI SANKYO LTD,Tokyo Stock Exchange,JPY,included,,121,121
+601127.SS,601127,SERES GROUP A,Shanghai Stock Exchange,CNY,included,,121,121
+603806.SS,603806,HANGZHOU FIRST APPLIED MATERIAL LT,Shanghai Stock Exchange,CNY,included,,121,121
+8113.T,8113,UNICHARM,Tokyo Stock Exchange,JPY,included,,121,121
+8951.T,8951,NIPPON BUILDING FUND REIT,Tokyo Stock Exchange,JPY,included,,121,121
+9020.T,9020,EAST JAPAN RAILWAY,Tokyo Stock Exchange,JPY,included,,121,121
+9022.T,9022,CENTRAL JAPAN RAILWAY,Tokyo Stock Exchange,JPY,included,,121,121
+ALNY,ALNY,ALNYLAM PHARMACEUTICALS,NASDAQ,USD,included,,121,121
+ANA.MC,ANA,ACCIONA,Bolsa De Madrid,EUR,included,,121,121
+ARGX.BR,ARGX,ARGENX,Nyse Euronext - Euronext Brussels,EUR,included,,121,121
+BMY,BMY,BRISTOL MYERS SQUIBB,NYSE,USD,included,,121,121
+COV.PA,COV,COVIVIO SA,Nyse Euronext - Euronext Paris,EUR,included,,121,121
+CSL.AX,CSL,CSL,Asx - All Markets,AUD,included,,121,121
+DEMANT.CO,DEMANT,DEMANT,Omx Nordic Exchange Copenhagen A/S,DKK,included,,121,121
+DLR,DLR,DIGITAL REALTY TRUST REIT,NYSE,USD,included,,121,121
+DXCM,DXCM,DEXCOM INC,NASDAQ,USD,included,,121,121
+EDPR.LS,EDPR,EDP RENEWABLES SA,Nyse Euronext - Euronext Lisbon,EUR,included,,121,121
+ELI.BR,ELI,ELIA GROUP SA,Nyse Euronext - Euronext Brussels,EUR,included,,121,121
+EQIX,EQIX,EQUINIX REIT,NASDAQ,USD,included,,121,121
+EW,EW,EDWARDS LIFESCIENCES,NYSE,USD,included,,121,121
+FIBRAPL14.MX,FIBRAPL14,PROLOGIS PROPERTY MEXICO REIT,Bolsa Mexicana De Valores,MXN,included,,121,121
+FSLR,FSLR,FIRST SOLAR,NASDAQ,USD,included,,121,121
+GFC.PA,GFC,GECINA SA,Nyse Euronext - Euronext Paris,EUR,included,,121,121
+GMAB.CO,GMAB,GENMAB,Omx Nordic Exchange Copenhagen A/S,DKK,included,,121,121
+HOT.DE,HOT,HOCHTIEF AG,Xetra,EUR,included,,121,121
+INCY,INCY,INCYTE CORP,NASDAQ,USD,included,,121,121
+INSM,INSM,INSMED,NASDAQ,USD,included,,121,121
+IPN.PA,IPN,IPSEN SA,Nyse Euronext - Euronext Paris,EUR,included,,121,121
+KIMBERA.MX,KIMBERA,KIMBERLY-CLARK DE MEXICO CLASS A,Bolsa Mexicana De Valores,MXN,included,,121,121
+KMB,KMB,KIMBERLY CLARK,NASDAQ,USD,included,,121,121
+LAND.L,LAND,LAND SECURITIES GROUP REIT PLC,London Stock Exchange,GBP,included,,121,121
+LI.PA,LI,KLEPIERRE REIT SA,Nyse Euronext - Euronext Paris,EUR,included,,121,121
+MAS,MAS,MASCO,NYSE,USD,included,,121,121
+MOWI.OL,MOWI,MOWI,Oslo Bors Asa,NOK,included,,121,121
+MRVL,MRVL,MARVELL TECHNOLOGY,NASDAQ,USD,included,,121,121
+NBIX,NBIX,NEUROCRINE BIOSCIENCES,NASDAQ,USD,included,,121,121
+NOVN.SW,NOVN,NOVARTIS AG,SIX Swiss Exchange,CHF,included,,121,121
+NRP.JO,NRP,NEPI ROCKCASTLE,Johannesburg Stock Exchange,ZAR,included,,121,121
+NVDA,NVDA,NVIDIA,NASDAQ,USD,included,,121,121
+PSON.L,PSON,PEARSON PLC,London Stock Exchange,GBP,included,,121,121
+REC.MI,REC,RECORDATI INDUSTRIA CHIMICA E FARM,Borsa Italiana,EUR,included,,121,121
+REGN,REGN,REGENERON PHARMACEUTICALS,NASDAQ,USD,included,,121,121
+SALM.OL,SALM,SALMAR,Oslo Bors Asa,NOK,included,,121,121
+SAP.TO,SAP,SAPUTO,Toronto Stock Exchange,CAD,included,,121,121
+SCA-B.ST,SCA B,SVENSKA CELLULOSA B,Nasdaq Omx Nordic,SEK,included,,121,121
+SCG.AX,SCG,SCENTRE GROUP,Asx - All Markets,AUD,included,,121,121
+SGRO.L,SGRO,SEGRO REIT PLC,London Stock Exchange,GBP,included,,121,121
+SIGMAFA.MX,SIGMAFA,ALFA A,Bolsa Mexicana De Valores,MXN,included,,121,121
+SOBI.ST,SOBI,SWEDISH ORPHAN BIOVITRUM,Nasdaq Omx Nordic,SEK,included,,121,121
+SOON.SW,SOON,SONOVA HOLDING AG,SIX Swiss Exchange,CHF,included,,121,121
+SPSN.SW,SPSN,SWISS PRIME SITE AG,SIX Swiss Exchange,CHF,included,,121,121
+SUI,SUI,SUN COMMUNITIES REIT INC,NYSE,USD,included,,121,121
+TAL,TAL,TAL EDUCATION GROUP ADR REPTG,NYSE,USD,included,,121,121
+TSN,TSN,TYSON FOODS INC CLASS A,NYSE,USD,included,,121,121
+UTHR,UTHR,UNITED THERAPEUTICS,NASDAQ,USD,included,,121,121
+UU.L,UU.,UNITED UTILITIES GROUP PLC,London Stock Exchange,GBP,included,,121,121
+VCX.AX,VCX,VICINITY CENTRES,Asx - All Markets,AUD,included,,121,121
+VER.VI,VER,VERBUND AG,Wiener Boerse Ag,EUR,included,,121,121
+VNA.DE,VNA,VONOVIA SE,Xetra,EUR,included,,121,121
+VRTX,VRTX,VERTEX PHARMACEUTICALS,NASDAQ,USD,included,,121,121
+VWS.CO,VWS,VESTAS WIND SYSTEMS,Omx Nordic Exchange Copenhagen A/S,DKK,included,,121,121
+WY,WY,WEYERHAEUSER REIT,NYSE,USD,included,,121,121

@@ -12,7 +12,11 @@ from src.governance.source_registry import (
     build_dataset_absolute_path, build_resolved_registry, get_dataset_by_id,
     get_input_dataset_configurations, get_parameters, get_preparation_enabled_datasets,
 )
-from src.preparation.exchange_mapping import build_yahoo_symbol, get_openfigi_exchange_code
+from src.preparation.exchange_mapping import (
+    build_yahoo_symbol,
+    get_listing_currency,
+    get_openfigi_exchange_code,
+)
 from src.utils.logger import logger
 
 SUCCESS_STATUS="Success"; FAILED_STATUS="Failed"
@@ -25,7 +29,7 @@ RULE_UNRESOLVED_PROVIDER_ERROR="UNRESOLVED_PROVIDER_ERROR"; RULE_UNRESOLVED_NO_F
 
 CANDIDATE_REQUIRED_COLUMNS=frozenset({"Ticker","Name","Location","Exchange","Currency","Asset Class"})
 MAPPING_REQUIRED_COLUMNS=frozenset({"input_position","input_index","id_type","id_value","result_position","figi","ticker","name","exch_code","market_sector","security_type","security_type_2","security_description","composite_figi","share_class_figi","provider_warning","provider_error"})
-OUTPUT_COLUMNS=("Ticker","Name","Location","Exchange","Currency","Asset Class","figi","composite_figi","share_class_figi","openfigi_ticker","openfigi_name","exch_code","market_sector","security_type","security_type_2","security_description","resolution_status","resolution_rule","mapping_candidates","expected_exch_code","yahoo_symbol")
+OUTPUT_COLUMNS=("Ticker","Name","Location","Exchange","Currency","listing_currency","Asset Class","figi","composite_figi","share_class_figi","openfigi_ticker","openfigi_name","exch_code","market_sector","security_type","security_type_2","security_description","resolution_status","resolution_rule","mapping_candidates","expected_exch_code","yahoo_symbol")
 
 def parse_arguments():
     p=argparse.ArgumentParser(description="Build a Security Master Dataset configured with Production Method=Preparation.")
@@ -146,8 +150,8 @@ def mapping_output_fields(m):
 
 def resolve_candidate(candidate,mappings):
     ticker=required_text(candidate["Ticker"],"Ticker"); exchange=required_text(candidate["Exchange"],"Exchange")
-    expected=get_openfigi_exchange_code(exchange); yahoo=build_yahoo_symbol(ticker,exchange)
-    out={k:candidate[k] for k in ("Ticker","Name","Location","Exchange","Currency","Asset Class")}; out.update(empty_openfigi_fields()); out["expected_exch_code"]=expected or ""; out["yahoo_symbol"]=yahoo or ""
+    expected=get_openfigi_exchange_code(exchange); yahoo=build_yahoo_symbol(ticker,exchange); listing_currency=get_listing_currency(exchange)
+    out={k:candidate[k] for k in ("Ticker","Name","Location","Exchange","Currency","Asset Class")}; out.update(empty_openfigi_fields()); out["listing_currency"]=listing_currency or ""; out["expected_exch_code"]=expected or ""; out["yahoo_symbol"]=yahoo or ""
     if mappings.empty:out.update(resolution_status=UNRESOLVED_STATUS,resolution_rule=RULE_UNRESOLVED_NO_MAPPING,mapping_candidates=0);return out
     usable=mappings[mappings["provider_error"].eq("")].copy()
     if usable.empty:out.update(resolution_status=UNRESOLVED_STATUS,resolution_rule=RULE_UNRESOLVED_PROVIDER_ERROR,mapping_candidates=0);return out
@@ -174,6 +178,8 @@ def build_security_master_dataframe(candidates,mappings):
     if len(master)!=len(candidates):raise RuntimeError("Security Master row count does not match Security Candidates.")
     missing=master[master["yahoo_symbol"].eq("")][["Ticker","Exchange"]]
     if not missing.empty:raise RuntimeError(f"Security Master contains unresolved Yahoo symbols: {missing.to_dict(orient='records')}")
+    missing_currency=master[master["listing_currency"].eq("")][["Ticker","Exchange"]]
+    if not missing_currency.empty:raise RuntimeError(f"Security Master contains unresolved listing currencies: {missing_currency.to_dict(orient='records')}")
     dup=master["yahoo_symbol"].duplicated(keep=False)
     if dup.any():raise RuntimeError(f"Security Master contains duplicate Yahoo symbols: {master.loc[dup,['Ticker','Exchange','yahoo_symbol']].to_dict(orient='records')}")
     counts=master["resolution_status"].value_counts().to_dict()
