@@ -1,0 +1,22 @@
+strategy,sector,weight,names
+equal_weight,Health Care,0.3132530120481918,26
+equal_weight,Real Estate,0.21686746987951738,18
+equal_weight,Consumer Staples,0.1566265060240959,13
+equal_weight,Industrials,0.120481927710843,10
+equal_weight,Utilities,0.0722891566265058,6
+equal_weight,Information Technology,0.0602409638554215,5
+equal_weight,Consumer Discretionary,0.0481927710843372,4
+equal_weight,Materials,0.0120481927710843,1
+minimum_volatility,Real Estate,0.3144282401045232,4
+minimum_volatility,Consumer Staples,0.2874739228063114,4
+minimum_volatility,Health Care,0.2489860176394037,11
+minimum_volatility,Industrials,0.0655826429448567,3
+minimum_volatility,Utilities,0.0356212501684705,2
+minimum_volatility,Consumer Discretionary,0.0342900037489259,2
+minimum_volatility,Information Technology,0.0136179225875073,1
+maximum_sharpe,Health Care,0.4607852810990468,8
+maximum_sharpe,Information Technology,0.197279920242823,2
+maximum_sharpe,Utilities,0.1618220386127134,2
+maximum_sharpe,Industrials,0.099140224378996,2
+maximum_sharpe,Consumer Discretionary,0.050003860870592304,3
+maximum_sharpe,Consumer Staples,0.0309686747958274,2

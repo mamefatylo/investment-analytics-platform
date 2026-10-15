@@ -101,6 +101,7 @@ EXCLUDED_UNIVERSE = UNIVERSE_DIR / "excluded"
 # ---------------------------------------------------------------------------
 
 PORTFOLIO_DATA = DATA_DIR / "04_portfolios"
+MONITORING_DATA = DATA_DIR / "05_monitoring"
 
 # ============================================================================
 # DATABASE
@@ -214,6 +215,10 @@ QUALITY_TESTS = (
 
 PORTFOLIO_TESTS = (
     TESTS_DIR / "portfolio"
+)
+
+MONITORING_TESTS = (
+    TESTS_DIR / "monitoring"
 )
 
 RISK_TESTS = (

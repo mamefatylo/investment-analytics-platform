@@ -1,0 +1,11 @@
+strategy,zone,weight,names
+equal_weight,Asie-Pacifique,0.3855421686746976,32
+equal_weight,Europe,0.3132530120481918,26
+equal_weight,Amériques,0.2891566265060232,24
+equal_weight,Moyen-Orient et Afrique,0.0120481927710843,1
+minimum_volatility,Asie-Pacifique,0.4491381326388124,12
+minimum_volatility,Europe,0.3104257318353964,6
+minimum_volatility,Amériques,0.2404361355257899,9
+maximum_sharpe,Amériques,0.4048876442749739,6
+maximum_sharpe,Europe,0.3800557097656531,4
+maximum_sharpe,Asie-Pacifique,0.2150566459593719,9

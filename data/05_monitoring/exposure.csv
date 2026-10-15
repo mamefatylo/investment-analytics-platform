@@ -1,0 +1,10 @@
+strategy,exposure,weight,names
+equal_weight,Actions,0.9999999999999969,83
+equal_weight,Obligations,0.0,0
+equal_weight,ETF,0.0,0
+minimum_volatility,Actions,0.9999999999999987,27
+minimum_volatility,Obligations,0.0,0
+minimum_volatility,ETF,0.0,0
+maximum_sharpe,Actions,0.9999999999999989,19
+maximum_sharpe,Obligations,0.0,0
+maximum_sharpe,ETF,0.0,0
