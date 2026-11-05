@@ -226,6 +226,57 @@ def table_columns(connection, table_name):
     ]
 
 
+def latest_acquisition(connection, configuration):
+    """Return the latest log row for the file this dataset loads."""
+    output_name = str(configuration.get("Output File Name") or "").strip()
+    if not output_name:
+        return None
+    rows = connection.execute(
+        """
+        SELECT execution_date, status, storage_location
+        FROM acquisition_log
+        WHERE output_file = ?
+        ORDER BY execution_date DESC
+        """,
+        (output_name,),
+    ).fetchall()
+    if not rows:
+        return None
+    target = build_dataset_absolute_path(configuration).parent.resolve()
+    for row in rows:
+        location = row[2]
+        if not location:
+            continue
+        try:
+            if Path(location).resolve() == target:
+                return row
+        except OSError:
+            continue
+    return rows[0]
+
+
+def catalog_fields(connection, configuration, now, load_date):
+    """Fields the catalog can fill without reading the data table."""
+    file_path = build_dataset_absolute_path(configuration)
+    table_name = str(configuration.get("Derived Table Name") or "").strip()
+    available = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    ).fetchone()
+    latest = latest_acquisition(connection, configuration)
+    fields = {
+        "storage_location": str(file_path.parent),
+        "last_database_load_date": load_date,
+        "table_available": 1 if available else 0,
+    }
+    if latest is not None:
+        fields["last_acquisition_date"] = latest[0]
+        fields["last_acquisition_status"] = latest[1]
+        if latest[2]:
+            fields["storage_location"] = latest[2]
+    return fields
+
+
 def register_dataset(connection, configuration, table_name, row_count):
     """Upsert dataset metadata using the columns available in dataset_registry."""
     columns = set(table_columns(connection, DATASET_REGISTRY_TABLE))
@@ -250,6 +301,9 @@ def register_dataset(connection, configuration, table_name, row_count):
         "updated_at": now,
         "created_at": now,
     }
+    candidate_values.update(
+        catalog_fields(connection, configuration, now, load_date=now)
+    )
 
     required = {"table_name"}
     if not required.issubset(columns):
@@ -326,6 +380,61 @@ def register_dataset(connection, configuration, table_name, row_count):
             f"({column_sql}) VALUES ({placeholders})",
             tuple(insert_values[column] for column in insert_columns),
         )
+
+
+def refresh_dataset_catalog():
+    """Align the catalog with the registry, the files, and the acquisition log."""
+    logger.info("Dataset catalog refresh started")
+    initialize_database_schema()
+    configurations = get_load_enabled_datasets()
+    connection = sqlite3.connect(DATABASE_FILE)
+    connection.execute("PRAGMA busy_timeout = 30000")
+    refreshed = []
+    try:
+        now = utc_timestamp()
+        for _, configuration in configurations.iterrows():
+            config = configuration.to_dict()
+            dataset_id = config.get("Dataset ID")
+            current = connection.execute(
+                """
+                SELECT updated_at, last_database_load_date
+                FROM dataset_registry
+                WHERE dataset_id = ?
+                """,
+                (dataset_id,),
+            ).fetchone()
+            if current is None:
+                continue
+            load_date = current[1] or current[0]
+            fields = catalog_fields(connection, config, now, load_date)
+            fields.update(
+                {
+                    "dataset_name": config.get("Dataset Name"),
+                    "source_id": config.get("Source ID"),
+                    "active": int(bool(config.get("Active"))),
+                    "load_enabled": int(bool(config.get("Load Enabled"))),
+                    "quality_enabled": int(bool(config.get("Quality Enabled"))),
+                    "chronology_enabled": int(bool(config.get("Chronology Enabled"))),
+                    "output_file_name": config.get("Output File Name"),
+                    "output_file": config.get("Output File Name"),
+                    "updated_at": now,
+                }
+            )
+            assignments = ", ".join(f"{quote_identifier(column)}=?" for column in fields)
+            connection.execute(
+                f"UPDATE dataset_registry SET {assignments} WHERE dataset_id=?",
+                (*fields.values(), dataset_id),
+            )
+            refreshed.append(str(dataset_id))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        logger.exception("Dataset catalog refresh failed")
+        raise
+    finally:
+        connection.close()
+    logger.info("Dataset catalog refreshed: %s", ", ".join(refreshed))
+    return refreshed
 
 
 def load_one_dataset(connection, configuration):

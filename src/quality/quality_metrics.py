@@ -53,6 +53,9 @@ def calculate_quality_metrics(controls: pd.DataFrame) -> dict:
         raise ValueError("Quality controls are empty.")
 
     execution_date = str(controls["execution_date"].iloc[0])
+    scored = controls.loc[~controls["table_name"].eq("odd_assessment")]
+    if not scored.empty:
+        controls = scored
     dataset_rows = []
     metric_rows = []
 

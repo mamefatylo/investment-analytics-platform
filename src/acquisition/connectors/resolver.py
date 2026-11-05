@@ -12,11 +12,11 @@ Example
 -------
 Registry value:
 
-    Connector = fred
+    Connector = snb
 
 Resolves module:
 
-    src.acquisition.connectors.fred
+    src.acquisition.connectors.snb
 
 No connector registry or provider-specific mapping is embedded
 in this module.
@@ -64,18 +64,16 @@ def normalize_connector_name(
 
     Valid examples
     --------------
-    fred
-    openfigi
     snb
     yfinance
 
     Invalid examples
     ----------------
-    Fred Connector
-    ../fred
-    src.acquisition.connectors.fred
-    fred.py
-    _fred
+    SNB Connector
+    ../snb
+    src.acquisition.connectors.snb
+    snb.py
+    _snb
     """
 
     if connector is None:

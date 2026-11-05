@@ -28,11 +28,12 @@ from src.quality.quality_config import (
     FAIL_RATE,
     FIGI_PATTERN,
     ISO_CURRENCY_PATTERN,
+    ODD_STATUS_PATTERN,
     OHLC_ABSOLUTE_TOLERANCE,
     OHLC_RELATIVE_TOLERANCE,
     PASS_RATE,
 )
-from src.quality.quality_rules import MACRO_VALUE_BOUNDS, rules_for_table
+from src.quality.quality_rules import rules_for_table
 from src.utils.logger import logger
 
 
@@ -217,36 +218,6 @@ def check_outliers(dataframe, rules) -> tuple[bool, int, str]:
             return True, 0, "Le SARON renseigné reste dans l'intervalle -5 à 15."
         return True, issues, f"{issues} observation(s) du SARON sont hors de l'intervalle -5 à 15."
 
-    if kind == "macro":
-        values = pd.to_numeric(dataframe["value"], errors="coerce")
-        series = dataframe["series_id"].astype(str)
-        flagged = pd.Series(False, index=dataframe.index)
-        unknown = []
-        for series_id, index in series.groupby(series, sort=False).groups.items():
-            present = values.loc[index].notna()
-            bounds = MACRO_VALUE_BOUNDS.get(str(series_id))
-            if bounds is None:
-                if bool(present.any()):
-                    unknown.append(str(series_id))
-                    flagged.loc[index] = present
-                continue
-            lower, upper, lower_inclusive, upper_inclusive = bounds
-            outside = pd.Series(False, index=index)
-            if lower is not None:
-                outside = outside | (present & (values.loc[index] < lower if lower_inclusive else values.loc[index] <= lower))
-            if upper is not None:
-                outside = outside | (present & (values.loc[index] > upper if upper_inclusive else values.loc[index] >= upper))
-            flagged.loc[index] = outside
-        issues = int(flagged.sum())
-        if issues == 0:
-            return True, 0, "Les indicateurs macro renseignés restent dans leur intervalle."
-        if unknown:
-            names = ", ".join(sorted(unknown))
-            return True, issues, (
-                f"{issues} observation(s) macro sont hors intervalle ou sans borne déclarée : {names}."
-            )
-        return True, issues, f"{issues} observation(s) macro sont hors de leur intervalle."
-
     return False, 0, "Règle d'aberration inconnue."
 
 
@@ -270,6 +241,8 @@ def check_formats(dataframe, rules) -> tuple[bool, int, str]:
             invalid = present & ~text.str.match(ISO_CURRENCY_PATTERN)
         elif column == "figi":
             invalid = present & ~text.str.match(FIGI_PATTERN)
+        elif column == "status":
+            invalid = ~text.str.match(ODD_STATUS_PATTERN)
         elif column == "value":
             numeric = pd.to_numeric(dataframe[column], errors="coerce")
             invalid = present & numeric.isna()
@@ -456,6 +429,78 @@ def unavailable_results(dataset, execution_date: str) -> list[dict]:
     ]
 
 
+SDG_NUMBER = re.compile(r"(?i)\b(?:SDG|ODS|ODD|Goals?)\s+(\d{1,2})\b")
+SHARE_STATED = re.compile(
+    r"(?i)\d+(?:[.,]\d+)?\s*(?:%|percent)\s+of\s+"
+    r"(?:the\s+)?(?:reported\s+)?(?:annual\s+)?(?:\d{4}\s+)?"
+    r"(?:activity|sales|revenue|net revenues|total revenue)"
+)
+CONTROVERSY_PENDING = re.compile(
+    r"(?i)(pending|no judgment|no assurance|still blocked|pleading stage|"
+    r"set of allegations|still open|no controversy finding is recorded|"
+    r"not a completed|no completed finding|does not record a decision|"
+    r"instruction phase was still blocked)"
+)
+
+
+def _filled(series: pd.Series) -> pd.Series:
+    return ~is_blank(series)
+
+
+def _identity(frame: pd.DataFrame) -> set[tuple[str, str]]:
+    return set(
+        zip(
+            frame["ticker"].astype(str).str.strip(),
+            frame["exchange"].astype(str).str.strip(),
+        )
+    )
+
+
+def odd_listing_coverage(dataframe: pd.DataFrame, frames: dict) -> tuple[int, str]:
+    """One register row for each listing in the security master."""
+    master = frames.get("securities_master")
+    if master is None or "ticker" not in getattr(master, "columns", ()):
+        return 0, "La comparaison au référentiel attend le chargement de DS-002."
+    register_keys = _identity(dataframe)
+    master_keys = _identity(master)
+    missing = master_keys - register_keys
+    extra = register_keys - master_keys
+    issues = len(missing) + len(extra)
+    if issues == 0:
+        return 0, f"Chaque titre du référentiel a une ligne ({len(master_keys)})."
+    return (
+        issues,
+        f"{len(missing)} titre(s) du référentiel n'ont pas de ligne. "
+        f"{len(extra)} ligne(s) ne sont pas dans le référentiel.",
+    )
+
+
+def odd_register_reading(dataframe: pd.DataFrame) -> str:
+    """Count register facts for the phase 4 result. Does not write the source file."""
+    sdg = dataframe["sdg"].astype(str)
+    printed = sdg.map(
+        lambda text: any(1 <= int(value) <= 17 for value in SDG_NUMBER.findall(text))
+    )
+    controversy = dataframe["controversy"].astype(str)
+    pending = controversy.map(lambda text: CONTROVERSY_PENDING.search(text) is not None)
+    sourced = _filled(dataframe["controversy"]) & ~pending
+    absent = ~_filled(dataframe["controversy"])
+    share_text = (
+        dataframe["activity"].astype(str)
+        + " "
+        + dataframe["positive_contribution"].astype(str)
+        + " "
+        + dataframe["negative_contribution"].astype(str)
+    )
+    stated = share_text.map(lambda text: SHARE_STATED.search(text) is not None)
+    return (
+        "Lecture du registre, consignée dans le résultat du contrôle et non dans le fichier source. "
+        f"sdg_numeral printed {int(printed.sum())}, absent {int((~printed).sum())}. "
+        f"controversy sourced {int(sourced.sum())}, pending {int(pending.sum())}, absent {int(absent.sum())}. "
+        f"revenue_share stated {int(stated.sum())}, unprinted {int((~stated).sum())}."
+    )
+
+
 def check_dataset(dataset, dataframe, frames, execution_date: str) -> list[dict]:
     rules = rules_for_table(dataset.table_name)
     records = len(dataframe)
@@ -463,8 +508,16 @@ def check_dataset(dataset, dataframe, frames, execution_date: str) -> list[dict]
 
     missing_issues, missing_notes = check_missing_values(dataset, dataframe, rules)
     duplicate_issues, duplicate_notes = check_duplicates(dataset, dataframe, rules)
+    if dataset.table_name == "odd_assessment":
+        coverage_issues, coverage_notes = odd_listing_coverage(dataframe, frames)
+        duplicate_issues += coverage_issues
+        duplicate_notes = f"{duplicate_notes} {coverage_notes}"
     outlier_applicable, outlier_issues, outlier_notes = check_outliers(dataframe, rules)
     format_applicable, format_issues, format_notes = check_formats(dataframe, rules)
+    if dataset.table_name == "odd_assessment" and format_applicable:
+        reading = odd_register_reading(dataframe)
+        format_notes = f"{format_notes} {reading}"
+        logger.info("ODD register reading: %s", reading)
     currency_applicable, currency_issues, currency_notes = check_currency(dataframe, rules, frames)
     chronology_applicable, chronology_issues, chronology_notes = check_chronology(
         dataframe,
@@ -520,6 +573,30 @@ def run_quality_checks(execution_date: str | None = None) -> pd.DataFrame:
                     frames,
                     execution_date,
                 )
+            )
+
+        odd = pd.read_sql(
+            """
+            SELECT dataset_id, source_id, table_name, chronology_enabled
+            FROM dataset_registry
+            WHERE active = 1
+            AND table_name = 'odd_assessment'
+            """,
+            connection,
+        )
+        if not odd.empty and table_exists(connection, "odd_assessment"):
+            odd_dataset = odd.iloc[0]
+            frames["odd_assessment"] = load_dataset(connection, "odd_assessment")
+            results.extend(
+                check_dataset(
+                    odd_dataset,
+                    frames["odd_assessment"],
+                    frames,
+                    execution_date,
+                )
+            )
+            logger.info(
+                "ODD file checks recorded. They stay outside the quality score."
             )
     finally:
         connection.close()

@@ -1,10 +1,9 @@
 """
-Build the ODD assessment register for SRC-007.
+Build the ODD assessment register.
 
-SRC-007 has no single provider endpoint. The register is a
-Preparation of the Security Master: one row per listed
-instrument, with the evidence columns left blank for manual
-completion. Eligibility is not decided here.
+The register has no single provider endpoint. It is a preparation
+of the security master: one row per listed instrument. Eligibility
+is not decided here.
 """
 
 import argparse
@@ -40,7 +39,6 @@ MASTER_COLUMNS = frozenset(
         "Ticker",
         "Name",
         "Exchange",
-        "figi",
     }
 )
 
@@ -52,8 +50,6 @@ IDENTITY_COLUMNS = (
 OUTPUT_COLUMNS = (
     "Ticker",
     "Exchange",
-    "figi",
-    "ISIN",
     "Company",
     "SDG",
     "Activity",
@@ -62,8 +58,8 @@ OUTPUT_COLUMNS = (
     "Evidence",
     "Source",
     "Controversy",
-    "Data Quality",
     "Status",
+    "Positive",
 )
 
 EVIDENCE_COLUMNS = (
@@ -74,7 +70,6 @@ EVIDENCE_COLUMNS = (
     "Evidence",
     "Source",
     "Controversy",
-    "Data Quality",
     "Status",
 )
 
@@ -286,7 +281,6 @@ def empty_assessment_row(security: pd.Series) -> dict[str, str]:
     row = {column: "" for column in OUTPUT_COLUMNS}
     row["Ticker"] = security["Ticker"]
     row["Exchange"] = security["Exchange"]
-    row["figi"] = security["figi"]
     row["Company"] = security["Name"]
     return row
 

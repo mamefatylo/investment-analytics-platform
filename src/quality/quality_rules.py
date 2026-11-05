@@ -15,25 +15,12 @@ TABLE_RULES = {
             "currency",
             "listing_currency",
             "asset_class",
-            "resolution_status",
+            "yahoo_symbol",
         ),
-        "mandatory_when": {
-            "resolution_status": {
-                "RESOLVED": ("figi", "exch_code", "openfigi_ticker"),
-            }
-        },
         "duplicate_key": ("ticker", "exchange"),
         "outlier": None,
-        "formats": ("currency", "listing_currency", "figi"),
+        "formats": ("currency", "listing_currency"),
         "currency": "listing",
-        "chronology_columns": (),
-    },
-    "openfigi_mapping": {
-        "mandatory": ("id_type", "id_value", "figi"),
-        "duplicate_key": ("input_position", "result_position"),
-        "outlier": None,
-        "formats": ("figi",),
-        "currency": None,
         "chronology_columns": (),
     },
     "market_prices": {
@@ -60,41 +47,33 @@ TABLE_RULES = {
         "currency": "saron_quote",
         "chronology_columns": ("date",),
     },
-    "macro_indicators": {
-        "mandatory": ("series_id", "date", "value"),
-        "duplicate_key": ("series_id", "date"),
-        "outlier": "macro",
-        "formats": (),
-        "currency": None,
-        "chronology_columns": ("date",),
-    },
-    "fundamentals_sec": {
+    "odd_assessment": {
         "mandatory": (
-            "cik",
-            "concept",
-            "unit",
-            "end",
-            "value",
-            "accession",
-            "filed",
+            "ticker",
+            "exchange",
+            "company",
+            "activity",
+            "status",
+            "positive",
         ),
-        "duplicate_key": ("cik", "concept", "unit", "start", "end", "accession"),
+        "mandatory_when": {
+            "status": {
+                "Eligible": (
+                    "sdg",
+                    "positive_contribution",
+                    "negative_contribution",
+                    "evidence",
+                    "source",
+                    "controversy",
+                ),
+            },
+        },
+        "duplicate_key": ("ticker", "exchange"),
         "outlier": None,
-        "formats": ("value",),
+        "formats": ("status",),
         "currency": None,
-        "chronology_columns": ("end", "filed"),
-        "chronology_order": ("start", "end"),
+        "chronology_columns": (),
     },
-}
-
-
-# lower, upper, lower inclusive, upper inclusive. None means no bound.
-# A series id absent from this map is an outlier: a new indicator is
-# not treated as acceptable until a bound is declared here.
-MACRO_VALUE_BOUNDS = {
-    "UNRATE": (0, 100, True, True),
-    "CPIAUCSL": (0, None, False, True),
-    "FEDFUNDS": (0, 30, True, True),
 }
 
 

@@ -1610,7 +1610,6 @@ def get_dependency_graph(
     -------
     For:
 
-        DS-003 -> DS-001
         DS-003 -> DS-002
         DS-002 -> DS-001
         DS-001 -> DS-000
@@ -1618,10 +1617,10 @@ def get_dependency_graph(
     the result is conceptually:
 
         {
-            "DS-003": ["DS-001", "DS-002"],
+            "DS-003": ["DS-002"],
+            "DS-002": ["DS-001"],
             "DS-001": ["DS-000"],
             "DS-000": [],
-            "DS-002": ["DS-001"],
         }
 
     Circular dependencies should already be rejected by
@@ -1726,7 +1725,6 @@ def get_dependency_order(
     -------
     For:
 
-        DS-003 -> DS-001
         DS-003 -> DS-002
         DS-002 -> DS-001
         DS-001 -> DS-000

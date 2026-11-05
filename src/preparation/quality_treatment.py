@@ -10,7 +10,6 @@ Outputs
 data/02_processed/market/market_prices_chf.csv
 data/02_processed/market/market_price_exclusions.csv
 data/02_processed/macro/saron.csv
-data/02_processed/macro/macro_indicators.csv
 data/03_universe/eligible/chf_portfolio_universe.csv
 """
 
@@ -42,7 +41,6 @@ FAILED_STATUS = "Failed"
 MARKET_PRICES_CHF = PROCESSED_MARKET / "market_prices_chf.csv"
 MARKET_PRICE_EXCLUSIONS = PROCESSED_MARKET / "market_price_exclusions.csv"
 SARON_TREATED = PROCESSED_MACRO / "saron.csv"
-MACRO_TREATED = PROCESSED_MACRO / "macro_indicators.csv"
 CHF_UNIVERSE = ELIGIBLE_UNIVERSE / "chf_portfolio_universe.csv"
 
 QUOTE_CURRENCY_FILE = PROCESSED_MARKET / "quote_currency.csv"
@@ -323,7 +321,7 @@ def build_chf_universe(master, published_currencies, clean_prices):
 
 
 def standardise_observations(observations):
-    """Store the FRED missing sentinel as an empty value. Do not interpolate."""
+    """Store a missing sentinel as an empty value. Do not interpolate."""
     treated = observations.loc[:, ["series_id", "date", "value"]].copy()
     treated["series_id"] = treated["series_id"].astype(str)
     treated["date"] = treated["date"].astype(str).str.slice(0, 10)
@@ -388,12 +386,10 @@ def build_quality_treatment():
         master = read_table(connection, "securities_master")
         fx_rates = read_table(connection, "fx_rates")
         saron = read_table(connection, "saron")
-        macro = read_table(connection, "macro_indicators")
 
     clean_prices, exclusions, published = treat_market_prices(prices, master, fx_rates)
     universe = build_chf_universe(master, published, clean_prices)
     saron_treated = treat_saron(saron)
-    macro_treated = standardise_observations(macro)
 
     outputs = {
         "market_prices_chf": publish_output(
@@ -422,12 +418,6 @@ def build_quality_treatment():
                 "rate_currency": REPORTING_CURRENCY,
                 "empty_values": int(saron_treated["value"].isna().sum()),
             },
-        ),
-        "macro_indicators": publish_output(
-            macro_treated,
-            MACRO_TREATED,
-            OBSERVATION_COLUMNS,
-            {"empty_values": int(macro_treated["value"].isna().sum())},
         ),
         "chf_portfolio_universe": publish_output(
             universe,

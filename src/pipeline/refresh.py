@@ -13,7 +13,8 @@ Order
 4. Rebuild the CHF prices, the CHF universe and the treated SARON.
 5. Rebuild the three portfolios on the latest SARON window.
 6. Describe the allocation, exposure and concentration of those weights.
-7. Rebuild the quality control center from the loaded tables.
+7. Measure performance from the published monthly returns.
+8. Rebuild the quality control center from the loaded tables.
 """
 
 import argparse
@@ -34,6 +35,7 @@ from src.governance.source_registry import (
     build_dataset_absolute_path,
     get_active_datasets,
 )
+from src.performance.build_performance import build_performance
 from src.portfolio_construction.build_portfolios import build_portfolios
 from src.portfolio_monitoring.build_monitoring import build_monitoring
 from src.preparation.odd_assessment import build_odd_assessment
@@ -242,6 +244,8 @@ def refresh(force=False):
     logger.info("Portfolio files: %s", len(portfolios))
     monitoring = build_monitoring()
     logger.info("Monitoring files: %s", len(monitoring))
+    performance = build_performance()
+    logger.info("Performance file: %s", performance["metrics"])
     report = build_data_control_center()
     logger.info("Quality report: %s", report)
     return {

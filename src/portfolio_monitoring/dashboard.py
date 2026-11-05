@@ -26,16 +26,15 @@ STRATEGY_COLORS = {
     "Volatilité minimale": "#2e7d4f",
     "Sharpe maximal": "#c47b17",
 }
-EXPOSURE_ORDER = ("Actions", "Obligations", "ETF")
 DASHBOARD_FILE = MONITORING_REPORTS / "dashboard.html"
 SECTION_TITLES = (
-    "Chemin du portefeuille",
-    "Contribution cumulée des secteurs",
+    "Performance cumulée et drawdown",
+    "Contributions cumulées par secteur",
     "Allocation par secteur",
     "Allocation par zone",
-    "Exposition",
+    "Devises",
     "Concentration",
-    "Dix premières lignes",
+    "Dix principales positions",
 )
 
 
@@ -133,13 +132,11 @@ def zone_figure(zones):
 
 
 def exposure_figure(exposure):
-    present = list(exposure["exposure"].unique())
-    extras = [label for label in present if label not in EXPOSURE_ORDER]
     return grouped_weights(
         exposure,
         "exposure",
         SECTION_TITLES[4],
-        list(EXPOSURE_ORDER) + extras,
+        category_order(exposure, "exposure"),
         height=440,
     )
 
@@ -150,7 +147,10 @@ def concentration_figure(report):
     figure = make_subplots(
         rows=1,
         cols=2,
-        subplot_titles=("Nombre effectif de titres", "Multiple de concentration"),
+        subplot_titles=(
+            "Nombre effectif de titres",
+            "Multiple de concentration",
+        ),
     )
     figure.add_trace(
         go.Bar(
@@ -241,7 +241,10 @@ def path_figure(path):
         cols=1,
         shared_xaxes=True,
         vertical_spacing=0.12,
-        subplot_titles=("Valeur d'un franc", "Perte depuis le plus haut"),
+        subplot_titles=(
+            "Placement de 1 CHF",
+            "Drawdown",
+        ),
     )
     for label in STRATEGY_LABELS.values():
         rows = dated.loc[dated["strategy"].eq(label)]
@@ -253,7 +256,7 @@ def path_figure(path):
                 name=label,
                 line={"color": STRATEGY_COLORS[label]},
                 legendgroup=label,
-                hovertemplate="%{x|%Y-%m}<br>%{y:.2f} franc<extra>" + label + "</extra>",
+                hovertemplate="%{x|%Y-%m}<br>%{y:.2f} CHF<extra>" + label + "</extra>",
             ),
             row=1,
             col=1,
@@ -267,13 +270,13 @@ def path_figure(path):
                 line={"color": STRATEGY_COLORS[label]},
                 legendgroup=label,
                 showlegend=False,
-                hovertemplate="%{x|%Y-%m}<br>%{y:.1%}<extra>" + label + "</extra>",
+                hovertemplate="%{x|%Y-%m}<br>drawdown %{y:.1%}<extra>" + label + "</extra>",
             ),
             row=2,
             col=1,
         )
-    figure.update_yaxes(title="Francs", rangemode="tozero", row=1, col=1)
-    figure.update_yaxes(tickformat=".0%", title="", row=2, col=1)
+    figure.update_yaxes(title="CHF", rangemode="tozero", row=1, col=1)
+    figure.update_yaxes(tickformat=".0%", title="Drawdown", row=2, col=1)
     figure.update_xaxes(type="date", title="")
     return apply_layout(figure, SECTION_TITLES[0], 680)
 
@@ -353,13 +356,19 @@ p {{ color: #333; line-height: 1.45; }}
 </head>
 <body>
 <h1>Suivi des portefeuilles</h1>
-<p>Mois du rapport {month}. Fenêtre {window_start} – {window_end}.
-Les poids ont été estimés sur toute la fenêtre, puis remis chaque mois.
-Le chemin montre ce qu'ils ont produit : la valeur d'un franc, la perte
-depuis le plus haut, et la contribution cumulée de chaque secteur.
-Ce n'est pas le parcours d'un mandat figé au premier mois.
-La répartition ne dérive pas ; la photo en dessous la décrit.
-La page est remplacée à chaque reconstruction.</p>
+<p>Situation au {month}. Période suivie {window_start} – {window_end}.
+Le poids d'un trimestre est fixé avec les soixante mois de rendements déjà observés,
+puis tenu pendant les trois mois du trimestre.
+Aucun émetteur ne dépasse 5 %. Aucun secteur ne dépasse 20 %.
+Aucune zone ne dépasse 50 %. Aucune devise de cotation ne dépasse 40 %.
+L'équipondéré couvre toute la liste, ramené à ces plafonds.
+La répartition ci-dessous est celle du mois du rapport. Les mois précédents peuvent différer.
+Le premier graphique suit un placement de 1 CHF et son drawdown.
+Le deuxième cumule les contributions mensuelles par secteur ; ce cumul n'est pas
+une performance composée.
+Les graphiques suivants décrivent la situation : secteur, zone, devise de cotation,
+concentration et dix principales positions.
+La page est régénérée à chaque reconstruction.</p>
 {body}
 </body>
 </html>

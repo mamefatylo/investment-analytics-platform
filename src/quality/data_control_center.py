@@ -21,6 +21,7 @@ Feuilles
 - Quality History
 """
 
+import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,6 +33,8 @@ from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.chart.axis import DateAxis
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.layout import Layout, ManualLayout
+from openpyxl.chart.legend import Legend
+from openpyxl.chart.series import SeriesLabel
 from openpyxl.chart.text import RichText
 from openpyxl.drawing.text import (
     CharacterProperties,
@@ -50,7 +53,8 @@ from src.config import (
 from src.quality.quality_checks import (
     run_quality_checks,
 )
-from src.quality.quality_metrics import calculate_quality_metrics
+from src.quality.quality_config import CONTROL_ORDER, PASS_RATE
+from src.quality.quality_metrics import calculate_quality_metrics, worst_status
 from src.utils.logger import logger
 
 # ============================================================================
@@ -73,10 +77,10 @@ PASS_THRESHOLD = 95.0
 WARNING_THRESHOLD = 80.0
 
 KPI_CHART_ANCHOR = "A16"
-KPI_CHART_WIDTH = 24
-KPI_CHART_HEIGHT = 13
-HISTORY_CHART_WIDTH = 24
-HISTORY_CHART_HEIGHT = 12
+KPI_CHART_WIDTH = 28
+KPI_CHART_HEIGHT = 16
+HISTORY_CHART_WIDTH = 28
+HISTORY_CHART_HEIGHT = 14
 CHART_VALUE_AXIS_MAX = 115
 
 HEADER_FILL = PatternFill(
@@ -454,208 +458,13 @@ def build_quality_issues(
 
 
 # ============================================================================
+# ============================================================================
 # QUALITY HISTORY
 # ============================================================================
+# L'historique du classeur est reconstruit depuis quality_run et
+# quality_metric_result. Le fichier Excel n'est pas relu.
 
 
-def load_history() -> pd.DataFrame:
-    """
-    Charge l'historique existant du Data Control Center.
-    """
-
-    history_columns = [
-        "run_id",
-        "execution_date",
-        "records_checked",
-        "datasets_checked",
-        "missing_value_rate",
-        "duplicate_rate",
-        "outlier_rate",
-        "format_rate",
-        "currency_rate",
-        "chronology_rate",
-        "global_quality_score",
-        "global_quality_grade",
-        "global_status",
-    ]
-
-    if not DATA_CONTROL_CENTER_FILE.exists():
-
-        return pd.DataFrame(
-            columns=history_columns
-        )
-
-    try:
-
-        history = pd.read_excel(
-            DATA_CONTROL_CENTER_FILE,
-            sheet_name=HISTORY_SHEET,
-            engine="openpyxl",
-        )
-
-    except ValueError:
-
-        logger.warning(
-            "Quality History sheet not found. "
-            "A new history will be created."
-        )
-
-        return pd.DataFrame(
-            columns=history_columns
-        )
-
-    except PermissionError as error:
-
-        raise PermissionError(
-            "The Data Control Center is currently "
-            "open or locked. Close the workbook "
-            "and rerun the process."
-        ) from error
-
-    except Exception as error:
-
-        logger.exception(
-            "Unable to read existing quality history."
-        )
-
-        raise RuntimeError(
-            "Unable to read existing "
-            "Quality History."
-        ) from error
-
-    if "missing_value_rate" not in history.columns:
-        logger.info(
-            "Previous quality history uses another score definition. "
-            "A new history is started."
-        )
-        return pd.DataFrame(columns=history_columns)
-
-    for column in history_columns:
-        if column not in history.columns:
-            history[column] = None
-
-    return history[history_columns]
-
-
-def get_metric_value(
-    metrics: pd.DataFrame,
-    metric_name: str,
-) -> float:
-    """
-    Récupère la valeur d'un indicateur par son nom.
-    """
-
-    metric_rows = metrics[
-        metrics["metric"] == metric_name
-    ]
-
-    if metric_rows.empty:
-
-        raise KeyError(
-            f"Metric not found: {metric_name}"
-        )
-
-    return float(
-        metric_rows.iloc[0]["value"]
-    )
-
-
-def update_history(
-    quality_results: dict,
-    run_id: str,
-    execution_date: str,
-) -> pd.DataFrame:
-    """
-    Ajoute l'exécution courante à l'historique qualité.
-    """
-
-    history = load_history()
-
-    metrics = quality_results[
-        "metrics"
-    ]
-
-    current_run = {
-        "run_id":
-            run_id,
-
-        "execution_date":
-            execution_date,
-
-        "records_checked":
-            quality_results[
-                "records_checked"
-            ],
-
-        "datasets_checked":
-            quality_results["datasets_checked"],
-
-        "missing_value_rate":
-            get_metric_value(metrics, "Valeurs manquantes"),
-
-        "duplicate_rate":
-            get_metric_value(metrics, "Doublons"),
-
-        "outlier_rate":
-            get_metric_value(metrics, "Valeurs aberrantes"),
-
-        "format_rate":
-            get_metric_value(metrics, "Formats incorrects"),
-
-        "currency_rate":
-            get_metric_value(metrics, "Cohérence des devises"),
-
-        "chronology_rate":
-            get_metric_value(metrics, "Chronologie"),
-
-        "global_quality_score":
-            quality_results[
-                "global_quality_score"
-            ],
-
-        "global_quality_grade":
-            quality_results[
-                "global_quality_grade"
-            ],
-
-        "global_status":
-            quality_results[
-                "global_quality_status"
-            ],
-    }
-
-    updated_history = pd.concat(
-        [
-            history,
-            pd.DataFrame(
-                [current_run]
-            ),
-        ],
-        ignore_index=True,
-    )
-
-    updated_history[
-        "execution_date"
-    ] = pd.to_datetime(
-        updated_history[
-            "execution_date"
-        ],
-        errors="coerce",
-    )
-
-    updated_history = (
-        updated_history
-        .sort_values(
-            by="execution_date",
-            kind="stable",
-        )
-        .reset_index(drop=True)
-    )
-
-    return updated_history
-
-
-# ============================================================================
 # FILE ACCESS
 # ============================================================================
 
@@ -1126,7 +935,7 @@ def format_history_sheet(
 
 
 def apply_chart_frame(chart, rotate_categories=False) -> None:
-    """Keep the title and axis titles outside the plot."""
+    """Keep the title, the axis titles and the legend outside the plot."""
 
     if chart.title is not None and hasattr(chart.title, "overlay"):
         chart.title.overlay = False
@@ -1136,14 +945,18 @@ def apply_chart_frame(chart, rotate_categories=False) -> None:
         if axis_title is not None and hasattr(axis_title, "overlay"):
             axis_title.overlay = False
 
+    chart.legend = Legend()
+    chart.legend.position = "b"
+    chart.legend.overlay = False
+
     chart.layout = Layout(
         manualLayout=ManualLayout(
             xMode="edge",
             yMode="edge",
-            x=0.14,
-            y=0.20,
-            w=0.80,
-            h=0.58,
+            x=0.10,
+            y=0.14,
+            w=0.84,
+            h=0.48,
         )
     )
 
@@ -1190,10 +1003,6 @@ def create_kpi_chart(
         "Score (%)"
     )
 
-    chart.x_axis.title = (
-        "Quality Metric"
-    )
-
     chart.y_axis.scaling.min = 0
 
     chart.y_axis.scaling.max = CHART_VALUE_AXIS_MAX
@@ -1231,7 +1040,8 @@ def create_kpi_chart(
         categories
     )
 
-    chart.legend = None
+    if chart.series:
+        chart.series[0].tx = SeriesLabel(v="Taux")
 
     chart.dataLabels = DataLabelList()
 
@@ -1336,7 +1146,8 @@ def create_history_chart(
         dates
     )
 
-    chart.legend = None
+    if chart.series:
+        chart.series[0].tx = SeriesLabel(v="Score")
 
     if chart.series:
 
@@ -1615,6 +1426,157 @@ def persist_quality_results(
         connection.close()
 
 
+HISTORY_RATE_COLUMNS = {
+    "Valeurs manquantes": "missing_value_rate",
+    "Doublons": "duplicate_rate",
+    "Valeurs aberrantes": "outlier_rate",
+    "Formats incorrects": "format_rate",
+    "Cohérence des devises": "currency_rate",
+    "Chronologie": "chronology_rate",
+}
+
+
+def history_from_database(connection) -> pd.DataFrame:
+    """Rebuild the score history from the quality tables."""
+    runs = pd.read_sql(
+        """
+        SELECT
+            run_id,
+            execution_date,
+            records_checked,
+            datasets_checked,
+            global_quality_score,
+            global_quality_grade,
+            global_status,
+            created_at
+        FROM quality_run
+        """,
+        connection,
+    )
+    metrics = pd.read_sql(
+        """
+        SELECT run_id, metric_name, metric_value, applicable
+        FROM quality_metric_result
+        """,
+        connection,
+    )
+    applicable = metrics.loc[metrics["applicable"].eq(1)]
+    grouped = applicable.groupby(
+        ["run_id", "metric_name"],
+        as_index=False,
+    )["metric_value"].mean()
+    pivot = grouped.pivot(
+        index="run_id",
+        columns="metric_name",
+        values="metric_value",
+    )
+    for metric_name, column in HISTORY_RATE_COLUMNS.items():
+        if metric_name in pivot.columns:
+            runs[column] = runs["run_id"].map(pivot[metric_name]).round(2)
+        else:
+            runs[column] = None
+    runs["execution_date"] = pd.to_datetime(runs["execution_date"], errors="coerce")
+    ordered = [
+        "run_id",
+        "execution_date",
+        "records_checked",
+        "datasets_checked",
+        *HISTORY_RATE_COLUMNS.values(),
+        "global_quality_score",
+        "global_quality_grade",
+        "global_status",
+    ]
+    return (
+        runs.sort_values(["execution_date", "created_at"], kind="stable")
+        .loc[:, ordered]
+        .reset_index(drop=True)
+    )
+
+
+def dashboard_metrics_from_database(metrics: pd.DataFrame) -> pd.DataFrame:
+    """Average the stored rates of one run. The ODD rows are already absent."""
+    rows = []
+    for metric_name in CONTROL_ORDER:
+        applicable = metrics.loc[
+            metrics["metric_name"].eq(metric_name)
+            & metrics["applicable"].eq(1)
+        ]
+        if applicable.empty:
+            value = 0.0
+            status = "NOT_APPLICABLE"
+        else:
+            value = round(float(applicable["metric_value"].mean()), 2)
+            status = worst_status(applicable["metric_status"])
+        rows.append(
+            {
+                "metric": metric_name,
+                "value": value,
+                "status": status,
+                "threshold": PASS_RATE,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def export_data_control_center() -> Path:
+    """Rewrite the workbook from the quality tables. Does not rerun the controls."""
+    logger.info("Data Control Center export from the database started")
+    connection = sqlite3.connect(DATABASE_FILE)
+    try:
+        history = history_from_database(connection)
+        if history.empty:
+            raise ValueError("No quality run is stored in the database.")
+        latest = history.iloc[-1]
+        run_id = str(latest["run_id"])
+        execution_date = pd.Timestamp(latest["execution_date"]).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        controls = pd.read_sql(
+            """
+            SELECT
+                run_id, dataset_id, source_id, table_name, control_id,
+                control_name, status, issues, records_checked, notes,
+                execution_date
+            FROM quality_control_result
+            WHERE run_id = ?
+            ORDER BY dataset_id, control_id
+            """,
+            connection,
+            params=(run_id,),
+        )
+        metrics = pd.read_sql(
+            """
+            SELECT metric_name, metric_value, metric_status, applicable
+            FROM quality_metric_result
+            WHERE run_id = ?
+            """,
+            connection,
+            params=(run_id,),
+        )
+    finally:
+        connection.close()
+
+    summary = pd.DataFrame(
+        [
+            {
+                "run_id": run_id,
+                "execution_date": execution_date,
+                "datasets_checked": int(latest["datasets_checked"]),
+                "records_checked": int(latest["records_checked"]),
+                "global_quality_score": float(latest["global_quality_score"]),
+                "global_quality_grade": latest["global_quality_grade"],
+                "global_status": latest["global_status"],
+            }
+        ]
+    )
+    dashboard_metrics = dashboard_metrics_from_database(metrics)
+    issues = build_quality_issues(controls, run_id, execution_date)
+    write_workbook(summary, dashboard_metrics, controls, issues, history)
+    finalize_workbook(summary, dashboard_metrics)
+    logger.info("Data Control Center exported from run %s", run_id)
+    return DATA_CONTROL_CENTER_FILE
+
+
 # ============================================================================
 # DATA CONTROL CENTER
 # ============================================================================
@@ -1665,48 +1627,7 @@ def build_data_control_center() -> Path:
             quality_results
         )
 
-        dashboard_summary = (
-            build_dashboard_summary(
-                quality_results,
-                run_id,
-                execution_date,
-            )
-        )
-
-        dashboard_metrics = (
-            build_dashboard_metrics(
-                quality_results
-            )
-        )
-
-        issues = (
-            build_quality_issues(
-                controls,
-                run_id,
-                execution_date,
-            )
-        )
-
-        history = (
-            update_history(
-                quality_results,
-                run_id,
-                execution_date,
-            )
-        )
-
-        write_workbook(
-            dashboard_summary,
-            dashboard_metrics,
-            controls,
-            issues,
-            history,
-        )
-
-        finalize_workbook(
-            dashboard_summary,
-            dashboard_metrics,
-        )
+        export_data_control_center()
 
         logger.info(
             f"Quality run ID: {run_id}"
@@ -1723,8 +1644,8 @@ def build_data_control_center() -> Path:
         )
 
         logger.info(
-            f"Issue categories detected: "
-            f"{len(issues)}"
+            "Issue categories detected: %s",
+            int(controls["issues"].gt(0).sum()),
         )
 
         logger.info(
@@ -1740,11 +1661,6 @@ def build_data_control_center() -> Path:
         logger.info(
             f"Global Quality Status: "
             f"{quality_results['global_quality_status']}"
-        )
-
-        logger.info(
-            f"History records: "
-            f"{len(history)}"
         )
 
         logger.info(
@@ -1775,8 +1691,22 @@ def build_data_control_center() -> Path:
 def main() -> None:
     """
     Point d'entrée du script.
+
+    Sans argument, les contrôles sont exécutés, enregistrés, puis le
+    classeur est réécrit depuis la base. Avec --export-only, le classeur
+    est seulement réécrit depuis la base.
     """
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--export-only",
+        action="store_true",
+        help="Rewrite the workbook from the stored quality tables.",
+    )
+    arguments = parser.parse_args()
+    if arguments.export_only:
+        export_data_control_center()
+        return
     build_data_control_center()
 
 

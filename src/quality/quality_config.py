@@ -43,6 +43,7 @@ STATUS_RANK = {
 
 ISO_CURRENCY_PATTERN = r"^[A-Z]{3}$"
 FIGI_PATTERN = r"^[A-Z0-9]{12}$"
+ODD_STATUS_PATTERN = r"^(?:Eligible|Not_Eligible|Indeterminate|Excluded)$"
 BLANK_TOKENS = {"", "nan", "none", "nat", "."}
 OHLC_RELATIVE_TOLERANCE = 0.001
 OHLC_ABSOLUTE_TOLERANCE = 0.01

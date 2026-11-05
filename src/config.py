@@ -68,13 +68,10 @@ UNIVERSE_DIR = DATA_DIR / "03_universe"
 # ---------------------------------------------------------------------------
 
 BENCHMARK = RAW_DIR / "benchmark"
-SECURITIES = RAW_DIR / "securities"
 MARKET = RAW_DIR / "market"
-FUNDAMENTALS = RAW_DIR / "fundamentals"
 MACRO = RAW_DIR / "macro"
 FX = RAW_DIR / "fx"
 ODD = RAW_DIR / "odd"
-EXCLUSIONS = RAW_DIR / "exclusions"
 
 # ---------------------------------------------------------------------------
 # PROCESSED DATASETS
@@ -82,11 +79,8 @@ EXCLUSIONS = RAW_DIR / "exclusions"
 
 PROCESSED_SECURITIES = PROCESSED_DIR / "securities"
 PROCESSED_MARKET = PROCESSED_DIR / "market"
-PROCESSED_FUNDAMENTALS = PROCESSED_DIR / "fundamentals"
 PROCESSED_MACRO = PROCESSED_DIR / "macro"
-PROCESSED_FX = PROCESSED_DIR / "fx"
 PROCESSED_ODD = PROCESSED_DIR / "odd"
-PROCESSED_EXCLUSIONS = PROCESSED_DIR / "exclusions"
 
 # ---------------------------------------------------------------------------
 # UNIVERSE DATASETS
@@ -102,6 +96,7 @@ EXCLUDED_UNIVERSE = UNIVERSE_DIR / "excluded"
 
 PORTFOLIO_DATA = DATA_DIR / "04_portfolios"
 MONITORING_DATA = DATA_DIR / "05_monitoring"
+PERFORMANCE_DATA = DATA_DIR / "06_performance"
 
 # ============================================================================
 # DATABASE
@@ -120,14 +115,6 @@ SRC_DIR = PROJECT_ROOT / "src"
 PREPARATION = SRC_DIR / "preparation"
 ACQUISITION = SRC_DIR / "acquisition"
 QUALITY = SRC_DIR / "quality"
-
-SECURITIES_MASTER_MODULE = (
-    SRC_DIR / "securities_master"
-)
-
-UNIVERSE_MODULE = (
-    SRC_DIR / "universe"
-)
 
 PORTFOLIO_CONSTRUCTION = (
     SRC_DIR / "portfolio_construction"
@@ -163,6 +150,7 @@ REPORTS_DIR = PROJECT_ROOT / "reports"
 
 PORTFOLIO_REPORTS = REPORTS_DIR / "portfolio"
 MONITORING_REPORTS = REPORTS_DIR / "monitoring"
+PERFORMANCE_REPORTS = REPORTS_DIR / "performance"
 RISK_REPORTS = REPORTS_DIR / "risk"
 
 MANAGEMENT_REPORTS = (
@@ -221,6 +209,10 @@ MONITORING_TESTS = (
     TESTS_DIR / "monitoring"
 )
 
+PERFORMANCE_TESTS = (
+    TESTS_DIR / "performance"
+)
+
 RISK_TESTS = (
     TESTS_DIR / "risk"
 )
@@ -230,3 +222,17 @@ RISK_TESTS = (
 # ============================================================================
 
 MARKET_HISTORY_YEARS = 10
+# Months of past returns used to set the next quarter's weights.
+# Five years is the risk horizon. The month being scored is excluded.
+ESTIMATION_MONTHS = 60
+# CLIENT001 IPS limits for a long-only equity mandate.
+# Issuer 5%, sector 20%, region 50%, listing currency 40%.
+# The optimized books keep 25 to 40 names. Gross turnover is at most
+# 50% a year, applied as 12.5% at each quarterly rebalance.
+ISSUER_WEIGHT_CAP = 0.05
+SECTOR_WEIGHT_CAP = 0.20
+ZONE_WEIGHT_CAP = 0.50
+CURRENCY_WEIGHT_CAP = 0.40
+MIN_POSITIONS = 25
+MAX_POSITIONS = 40
+QUARTERLY_TURNOVER_CAP = 0.125

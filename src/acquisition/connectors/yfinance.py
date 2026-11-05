@@ -632,6 +632,14 @@ def normalize_ascii_text(
 
     text = text.casefold()
 
+    # Unicode does not decompose these letters. Leaving them for the
+    # ASCII filter would delete the letter instead of folding it.
+    text = (
+        text
+        .replace("ø", "o")
+        .replace("æ", "ae")
+    )
+
     text = re.sub(
         r"[^a-z0-9]+",
         " ",

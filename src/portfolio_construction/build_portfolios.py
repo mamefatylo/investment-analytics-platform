@@ -3,7 +3,12 @@ Phase 5 portfolio construction.
 
 Equal Weight, Minimum Volatility, and Maximum Sharpe share one
 CHF-eligible universe and one monthly CHF return series. SARON is
-the risk-free rate. No price, rate, or weight is invented.
+the risk-free rate. No price, rate, or expected return is invented.
+
+The weight of a quarter is fixed from the previous ESTIMATION_MONTHS
+returns only, then held for the three months of that quarter.
+Issuer, sector, zone and listing-currency caps come from the IPS.
+The covariance is the Ledoit-Wolf (2004) shrinkage estimator.
 
 Outputs
 -------
@@ -22,10 +27,18 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from src.config import (
+    CURRENCY_WEIGHT_CAP,
+    ESTIMATION_MONTHS,
+    ISSUER_WEIGHT_CAP,
     MARKET_HISTORY_YEARS,
+    MAX_POSITIONS,
+    MIN_POSITIONS,
     MONTHS_PER_YEAR,
     PORTFOLIO_DATA,
+    QUARTERLY_TURNOVER_CAP,
     REPORTING_CURRENCY,
+    SECTOR_WEIGHT_CAP,
+    ZONE_WEIGHT_CAP,
 )
 from src.preparation.quality_treatment import (
     CHF_UNIVERSE,
@@ -51,6 +64,7 @@ MEMBERSHIP_FILE = PORTFOLIO_DATA / "portfolio_membership.csv"
 
 WEIGHT_COLUMNS = (
     "strategy",
+    "month",
     "yahoo_symbol",
     "ticker",
     "name",
@@ -126,7 +140,12 @@ def month_end_levels(prices):
 
 
 def estimation_window(saron):
-    """Last ten SARON years, as monthly return dates and the price months they need."""
+    """Scored months, the price history they require, and monthly SARON.
+
+    The scored window is the last MARKET_HISTORY_YEARS of SARON.
+    Each scored month also needs ESTIMATION_MONTHS of earlier returns,
+    so the price history starts one month before that estimation sample.
+    """
     labelled = saron.loc[:, ["date", "value", "rate_currency", "series_id"]].copy()
     if labelled["series_id"].astype(str).ne("SARON").any():
         raise RuntimeError("The risk-free file is not the SARON series.")
@@ -139,16 +158,18 @@ def estimation_window(saron):
     if labelled["value"].isna().any():
         raise RuntimeError("SARON has an empty value.")
     end = labelled["month"].max()
-    start = end - (MARKET_HISTORY_YEARS * MONTHS_PER_YEAR - 1)
-    return_months = pd.period_range(start, end, freq="M")
-    price_months = pd.period_range(start - 1, end, freq="M")
+    scored_start = end - (MARKET_HISTORY_YEARS * MONTHS_PER_YEAR - 1)
+    history_start = scored_start - ESTIMATION_MONTHS
+    scored_months = pd.period_range(scored_start, end, freq="M")
+    return_months = pd.period_range(history_start, end, freq="M")
+    price_months = pd.period_range(history_start - 1, end, freq="M")
     published = set(labelled["month"])
     if not set(return_months).issubset(published):
-        raise RuntimeError("SARON does not cover the estimation window.")
+        raise RuntimeError("SARON does not cover the months before the scored window.")
     annualized = labelled.set_index("month")["value"].reindex(return_months)
     monthly = (1 + annualized / 100) ** (1 / MONTHS_PER_YEAR) - 1
     monthly.index = monthly.index.astype(str)
-    return return_months, price_months, monthly
+    return scored_months, price_months, monthly
 
 
 def shared_membership(universe, levels, price_months):
@@ -223,19 +244,173 @@ def shared_monthly_returns(levels, membership, return_months, price_months):
     return returns
 
 
-def equal_weight(asset_returns):
-    """Give every included name the same weight."""
-    count = asset_returns.shape[1]
-    return pd.Series(1 / count, index=asset_returns.columns, dtype=float)
+def _buckets(labels):
+    groups = {}
+    for index, label in enumerate(labels):
+        groups.setdefault(str(label), []).append(index)
+    return {key: np.asarray(value, dtype=int) for key, value in groups.items()}
 
 
-def _long_only_weights(values, columns):
-    """Drop numerical dust below zero and bring the weights back to a full investment."""
-    weights = pd.Series(values, index=columns, dtype=float).clip(lower=0)
-    total = float(weights.sum())
-    if total <= 0:
-        raise RuntimeError("Portfolio weights sum to zero.")
-    return weights / total
+def _mandate_groups(sectors, zones, currencies):
+    grouped = []
+    for labels, cap in (
+        (sectors, SECTOR_WEIGHT_CAP),
+        (zones, ZONE_WEIGHT_CAP),
+        (currencies, CURRENCY_WEIGHT_CAP),
+    ):
+        for indices in _buckets(labels).values():
+            grouped.append((indices, cap))
+    return grouped
+
+
+def project_mandate(values, sectors, zones, currencies, locked_out=None):
+    """Project onto the long-only IPS caps. Locked names stay at zero."""
+    weights = np.clip(np.asarray(values, dtype=float), 0, None)
+    locked = np.zeros(len(weights), dtype=bool) if locked_out is None else np.asarray(locked_out, dtype=bool)
+    weights[locked] = 0.0
+    if float(weights.sum()) <= 0:
+        free = np.where(~locked)[0]
+        if len(free) == 0:
+            raise RuntimeError("Every name is locked out of the mandate.")
+        weights[free] = 1.0 / len(free)
+    else:
+        weights = weights / float(weights.sum())
+        weights[locked] = 0.0
+        if float(weights.sum()) <= 0:
+            raise RuntimeError("Portfolio weights sum to zero.")
+        weights = weights / float(weights.sum())
+    groups = _mandate_groups(sectors, zones, currencies)
+    for _ in range(len(weights) * 20):
+        weights = np.minimum(weights, ISSUER_WEIGHT_CAP)
+        weights[locked] = 0.0
+        for indices, cap in groups:
+            total = float(weights[indices].sum())
+            if total > cap:
+                weights[indices] *= cap / total
+        weights[locked] = 0.0
+        deficit = 1.0 - float(weights.sum())
+        if abs(deficit) <= 1e-10:
+            break
+        if deficit < 0:
+            weights /= float(weights.sum())
+            continue
+        eligible = ~locked & (weights < ISSUER_WEIGHT_CAP - 1e-14)
+        for indices, cap in groups:
+            if float(weights[indices].sum()) >= cap - 1e-10:
+                eligible[indices] = False
+        if not np.any(eligible):
+            raise RuntimeError("The mandate caps cannot be met.")
+        room = ISSUER_WEIGHT_CAP - weights[eligible]
+        if float(room.sum()) <= 0:
+            raise RuntimeError("The mandate caps cannot be met.")
+        weights[eligible] += deficit * room / float(room.sum())
+    if abs(float(weights.sum()) - 1) > 1e-6:
+        raise RuntimeError("Projected weights do not sum to one.")
+    if float(weights.max()) > ISSUER_WEIGHT_CAP + 1e-6 or float(weights.min()) < -1e-10:
+        raise RuntimeError("Projected weights leave the issuer cap.")
+    for indices, cap in groups:
+        if float(weights[indices].sum()) > cap + 1e-6:
+            raise RuntimeError("Projected weights leave a group cap.")
+    if float(weights[locked].sum()) > 1e-8:
+        raise RuntimeError("A locked name received weight.")
+    return weights
+
+
+def _group_constraints(count, sectors, zones, currencies):
+    constraints = [_fully_invested(count)]
+    for indices, cap in _mandate_groups(sectors, zones, currencies):
+        row = np.zeros(count)
+        row[indices] = 1.0
+        constraints.append(
+            {
+                "type": "ineq",
+                "fun": lambda weights, row=row, cap=cap: cap - float(row @ weights),
+                "jac": lambda weights, row=row: -row,
+            }
+        )
+    return constraints
+
+
+def _shape_positions(weights, preference):
+    """Bring an optimized book back to the 25–40 name band.
+
+    Names outside the kept set are locked at zero. Numerical dust is not a
+    position, and the later projection must not put weight back on it.
+    """
+    weights = np.asarray(weights, dtype=float).copy()
+    active = np.where(weights > 1e-8)[0]
+    if len(active) > MAX_POSITIONS:
+        keep = active[np.argsort(-weights[active])][:MAX_POSITIONS]
+    elif len(active) < MIN_POSITIONS:
+        chosen = [int(index) for index in active]
+        for index in np.argsort(-np.asarray(preference, dtype=float)):
+            if len(chosen) >= MIN_POSITIONS:
+                break
+            if int(index) not in chosen:
+                chosen.append(int(index))
+        keep = np.asarray(chosen, dtype=int)
+        for index in keep:
+            if weights[index] <= 0:
+                weights[index] = 1e-6
+    else:
+        keep = active
+    mask = np.zeros(len(weights), dtype=bool)
+    mask[np.asarray(keep, dtype=int)] = True
+    weights[~mask] = 0.0
+    return weights, ~mask
+
+
+def _respect_turnover(weights, previous, locked_out, sectors, zones, currencies):
+    """Stay within the quarterly turnover budget by moving toward the previous book."""
+    target = project_mandate(weights, sectors, zones, currencies, locked_out)
+    if previous is None:
+        return target
+    if float(np.abs(target - previous).sum()) <= QUARTERLY_TURNOVER_CAP + 1e-8:
+        return target
+    best = np.asarray(previous, dtype=float).copy()
+    low, high = 0.0, 1.0
+    for _ in range(24):
+        mid = (low + high) / 2
+        mixed = (1 - mid) * previous + mid * target
+        mixed[locked_out] = 0.0
+        mixed = project_mandate(mixed, sectors, zones, currencies, locked_out)
+        if float(np.abs(mixed - previous).sum()) <= QUARTERLY_TURNOVER_CAP + 1e-8:
+            best = mixed
+            low = mid
+        else:
+            high = mid
+    return best
+
+
+def ledoit_wolf_covariance(returns):
+    """Shrink the sample covariance toward the average variance.
+
+    Ledoit and Wolf, Journal of Multivariate Analysis, 2004.
+    The sample second-moment matrix uses that paper's divisor T.
+    The intensity is clipped to [0, 1].
+    """
+    values = np.asarray(returns, dtype=float)
+    centred = values - values.mean(axis=0)
+    observations, count = centred.shape
+    squares = centred ** 2
+    diagonal = squares.sum(axis=0) / observations
+    average_variance = float(diagonal.sum()) / count
+    beta_total = float((squares.T @ squares).sum())
+    delta_total = float(((centred.T @ centred) ** 2).sum()) / observations ** 2
+    beta = (1.0 / (count * observations)) * (beta_total / observations - delta_total)
+    delta = (
+        delta_total
+        - 2.0 * average_variance * float(diagonal.sum())
+        + count * average_variance ** 2
+    ) / count
+    if delta <= 0:
+        intensity = 1.0
+    else:
+        intensity = min(1.0, max(0.0, beta / delta))
+    sample = (centred.T @ centred) / observations
+    shrunk = (1.0 - intensity) * sample
+    shrunk.flat[:: count + 1] += intensity * average_variance
+    return shrunk
 
 
 def _solve(objective, gradient, start, bounds, constraints):
@@ -253,10 +428,24 @@ def _solve(objective, gradient, start, bounds, constraints):
     return result.x
 
 
-def minimum_volatility(asset_returns):
-    """Long-only fully invested portfolio with the smallest sample variance."""
-    covariance = asset_returns.cov().to_numpy()
+def _mandate_bounds(count):
+    return [(0.0, ISSUER_WEIGHT_CAP)] * count
+
+
+def _fully_invested(count):
+    return {
+        "type": "eq",
+        "fun": lambda weights: np.sum(weights) - 1.0,
+        "jac": lambda weights: np.ones(count),
+    }
+
+
+def minimum_volatility(asset_returns, sectors, zones, currencies, previous=None):
+    """Smallest variance on this sample, inside the IPS caps."""
+    covariance = ledoit_wolf_covariance(asset_returns)
     count = covariance.shape[0]
+    equal = project_mandate(np.ones(count), sectors, zones, currencies)
+    constraints = _group_constraints(count, sectors, zones, currencies)
 
     def objective(weights):
         return float(weights @ covariance @ weights)
@@ -264,115 +453,86 @@ def minimum_volatility(asset_returns):
     def gradient(weights):
         return 2 * covariance @ weights
 
-    start = np.full(count, 1 / count)
-    bounds = [(0.0, 1.0)] * count
-    constraints = {
-        "type": "eq",
-        "fun": lambda weights: np.sum(weights) - 1.0,
-        "jac": lambda weights: np.ones(count),
-    }
-    solved = _solve(objective, gradient, start, bounds, constraints)
-    weights = _long_only_weights(solved, asset_returns.columns)
-    equal = objective(start)
-    if objective(weights.to_numpy()) > equal + 1e-10:
-        raise RuntimeError("Minimum volatility is above the equal-weight variance.")
-    return weights
+    solved = _solve(objective, gradient, equal, _mandate_bounds(count), constraints)
+    weights = project_mandate(solved, sectors, zones, currencies)
+    if objective(weights) > objective(equal) + 1e-8:
+        raise RuntimeError("Minimum volatility is above the equal-weight variance on its sample.")
+    preference = -np.diag(covariance)
+    shaped, locked_out = _shape_positions(weights, preference)
+    held = _respect_turnover(shaped, previous, locked_out, sectors, zones, currencies)
+    return pd.Series(held, index=asset_returns.columns, dtype=float)
 
 
-def maximum_sharpe(asset_returns, risk_free):
-    """Long-only portfolio with the highest SARON excess return per unit of risk."""
+def maximum_sharpe(asset_returns, risk_free, sectors, zones, currencies, previous=None):
+    """Highest SARON excess return per unit of risk on this sample, inside the IPS caps."""
     excess = asset_returns.sub(risk_free, axis=0)
     mean_excess = excess.mean().to_numpy()
-    covariance = excess.cov().to_numpy()
+    covariance = ledoit_wolf_covariance(excess)
     count = covariance.shape[0]
     columns = asset_returns.columns
+    constraints = _group_constraints(count, sectors, zones, currencies)
+
+    def statistics(weights):
+        expected = float(weights @ mean_excess)
+        sigma_w = covariance @ weights
+        variance = float(weights @ sigma_w)
+        return expected, sigma_w, variance
 
     def sharpe_of(weights):
-        aligned = _long_only_weights(weights, columns).to_numpy()
-        expected = float(aligned @ mean_excess)
-        variance = float(aligned @ covariance @ aligned)
+        expected, _sigma_w, variance = statistics(weights)
         if variance <= 0:
             return -math.inf
         return expected / math.sqrt(variance)
 
-    if np.all(mean_excess <= 0):
-        return _maximum_sharpe_invested(excess, mean_excess, covariance)
-
     def objective(weights):
-        return -float(mean_excess @ weights)
+        return -sharpe_of(weights)
 
     def gradient(weights):
-        return -mean_excess
+        expected, sigma_w, variance = statistics(weights)
+        volatility = math.sqrt(max(variance, 1e-18))
+        return -(mean_excess / volatility - expected * sigma_w / volatility ** 3)
 
-    bounds = [(0.0, None)] * count
-    constraints = {
-        "type": "ineq",
-        "fun": lambda weights: 1.0 - float(weights @ covariance @ weights),
-        "jac": lambda weights: -2 * covariance @ weights,
-    }
+    equal = project_mandate(np.ones(count), sectors, zones, currencies)
+    starts = [equal]
     best = int(np.argmax(mean_excess))
-    scale = 1 / math.sqrt(float(covariance[best, best]))
-    starts = [np.zeros(count)]
-    starts[0][best] = scale
+    concentrated = np.full(count, (1 - ISSUER_WEIGHT_CAP) / (count - 1))
+    concentrated[best] = ISSUER_WEIGHT_CAP
+    starts.append(project_mandate(concentrated, sectors, zones, currencies))
     generator = np.random.default_rng(SOLVER_SEED)
-    direction = np.clip(mean_excess, 0, None)
-    if float(direction.sum()) == 0:
-        direction = np.ones(count)
-    for draw in range(SHARPE_STARTS):
-        raw = generator.dirichlet(np.ones(count)) * (1 + draw)
-        raw = raw * np.maximum(direction, 1e-8)
-        variance = float(raw @ covariance @ raw)
-        starts.append(raw / math.sqrt(variance))
+    for _draw in range(SHARPE_STARTS):
+        starts.append(project_mandate(generator.dirichlet(np.ones(count)), sectors, zones, currencies))
 
     best_weights = None
     best_sharpe = -math.inf
     for start in starts:
-        solved = _solve(objective, gradient, start, bounds, constraints)
-        candidate = _long_only_weights(solved, columns)
-        value = sharpe_of(candidate.to_numpy())
+        solved = _solve(objective, gradient, start, _mandate_bounds(count), constraints)
+        candidate = project_mandate(solved, sectors, zones, currencies)
+        value = sharpe_of(candidate)
         if value > best_sharpe:
             best_sharpe = value
             best_weights = candidate
-    equal_sharpe = sharpe_of(np.full(count, 1 / count))
-    if best_weights is None or best_sharpe + 1e-8 < equal_sharpe:
-        raise RuntimeError("Maximum Sharpe is below the equal-weight Sharpe.")
-    return best_weights
-
-
-def _maximum_sharpe_invested(excess, mean_excess, covariance):
-    """Fully invested search used when every name has a negative mean excess return."""
-    count = covariance.shape[0]
-    columns = excess.columns
-
-    def objective(weights):
-        expected = float(weights @ mean_excess)
-        variance = float(weights @ covariance @ weights)
-        if variance <= 0:
-            return 0.0
-        return -expected / math.sqrt(variance)
-
-    start = np.full(count, 1 / count)
-    bounds = [(0.0, 1.0)] * count
-    constraints = {
-        "type": "eq",
-        "fun": lambda weights: np.sum(weights) - 1.0,
-        "jac": lambda weights: np.ones(count),
-    }
-    solved = _solve(objective, None, start, bounds, constraints)
-    return _long_only_weights(solved, columns)
+    if best_weights is None or best_sharpe + 1e-8 < sharpe_of(equal):
+        raise RuntimeError("Maximum Sharpe is below the equal-weight Sharpe on its sample.")
+    shaped, locked_out = _shape_positions(best_weights, mean_excess)
+    held = _respect_turnover(shaped, previous, locked_out, sectors, zones, currencies)
+    return pd.Series(held, index=columns, dtype=float)
 
 
 def portfolio_return(asset_returns, weights):
-    """Monthly return of a portfolio brought back to the same weights each month."""
+    """Monthly return from a single weight vector or from one vector per month."""
+    if isinstance(weights, pd.DataFrame):
+        ordered = weights.reindex(index=asset_returns.index, columns=asset_returns.columns)
+        if ordered.isna().any().any():
+            raise RuntimeError("A weight is missing for a scored month.")
+        return asset_returns.mul(ordered).sum(axis=1)
     ordered = weights.reindex(asset_returns.columns)
     if ordered.isna().any():
         raise RuntimeError("A weight is missing for a shared name.")
     return asset_returns.mul(ordered, axis=1).sum(axis=1)
 
 
-def measure_strategy(strategy, asset_returns, risk_free, weights):
-    """Annualize the monthly series. Sharpe subtracts the monthly SARON return."""
-    returns = portfolio_return(asset_returns, weights)
+def measure_strategy(strategy, returns, risk_free, last_weights):
+    """Annualize the scored path. The book statistics are those of the last month."""
     excess = returns - risk_free.reindex(returns.index)
     if excess.isna().any():
         raise RuntimeError("A portfolio month has no SARON return.")
@@ -384,7 +544,7 @@ def measure_strategy(strategy, asset_returns, risk_free, weights):
     volatility = float(excess.std(ddof=1))
     return {
         "strategy": strategy,
-        "names": int(weights.shape[0]),
+        "names": int(last_weights.shape[0]),
         "months": int(returns.shape[0]),
         "window_start": str(returns.index.min()),
         "window_end": str(returns.index.max()),
@@ -392,8 +552,8 @@ def measure_strategy(strategy, asset_returns, risk_free, weights):
         "annualized_volatility": float(returns.std(ddof=1) * math.sqrt(MONTHS_PER_YEAR)),
         "sharpe_ratio": float(excess.mean() / volatility * math.sqrt(MONTHS_PER_YEAR)),
         "maximum_drawdown": float(drawdown.min()),
-        "maximum_weight": float(weights.max()),
-        "effective_holdings": float(1 / np.square(weights.to_numpy()).sum()),
+        "maximum_weight": float(last_weights.max()),
+        "effective_holdings": float(1 / np.square(last_weights.to_numpy()).sum()),
         "risk_free_series": "SARON",
         "risk_free_currency": REPORTING_CURRENCY,
     }
@@ -439,20 +599,19 @@ def build_monthly_returns(asset_returns, risk_free, strategy_weights):
 
 
 def build_weight_table(strategy_weights, membership):
-    """Attach the security identity to each weight."""
+    """Attach the security identity to each month's weight."""
     identity = membership.loc[
         membership["decision"].eq("included"),
         ["yahoo_symbol", "ticker", "name", "listing_currency"],
     ]
     frames = []
     for strategy in STRATEGY_IDS:
-        weights = strategy_weights[strategy].rename("weight")
-        weights.index.name = "yahoo_symbol"
-        frame = weights.reset_index()
+        panel = strategy_weights[strategy].copy()
+        panel.index.name = "month"
+        panel.columns.name = "yahoo_symbol"
+        frame = panel.stack().rename("weight").reset_index()
         frame.insert(0, "strategy", strategy)
-        frames.append(
-            frame.merge(identity, on="yahoo_symbol", how="left", validate="one_to_one")
-        )
+        frames.append(frame.merge(identity, on="yahoo_symbol", how="left", validate="many_to_one"))
     table = pd.concat(frames, ignore_index=True)
     table["strategy"] = pd.Categorical(
         table["strategy"],
@@ -460,11 +619,92 @@ def build_weight_table(strategy_weights, membership):
         ordered=True,
     )
     table = table.sort_values(
-        ["strategy", "weight", "yahoo_symbol"],
-        ascending=[True, False, True],
+        ["strategy", "month", "weight", "yahoo_symbol"],
+        ascending=[True, True, False, True],
     ).reset_index(drop=True)
     table["strategy"] = table["strategy"].astype(str)
+    table["month"] = table["month"].astype(str)
     return table.loc[:, list(WEIGHT_COLUMNS)]
+
+
+def _quarter_start(month):
+    return int(str(month)[5:7]) in (1, 4, 7, 10)
+
+
+def group_labels(columns, membership):
+    """Sector, zone and listing currency aligned with the return columns."""
+    from src.portfolio_monitoring.build_monitoring import (
+        UNCLASSIFIED,
+        load_holding_classification,
+        zone_for,
+    )
+
+    classification = load_holding_classification().drop_duplicates("ticker")
+    identity = membership.loc[
+        membership["decision"].eq("included"),
+        ["yahoo_symbol", "ticker", "listing_currency"],
+    ]
+    merged = identity.merge(classification, on="ticker", how="left")
+    merged = merged.drop_duplicates("yahoo_symbol").set_index("yahoo_symbol")
+    sectors, zones, currencies = [], [], []
+    for symbol in columns:
+        row = merged.loc[symbol]
+        sector = "" if pd.isna(row["sector"]) else str(row["sector"]).strip()
+        country = "" if pd.isna(row["country"]) else str(row["country"]).strip()
+        sectors.append(sector or UNCLASSIFIED)
+        zones.append(zone_for(country) if country else UNCLASSIFIED)
+        currencies.append(str(row["listing_currency"]))
+    return sectors, zones, currencies
+
+
+def mandate_weights(asset_returns, risk_free, scored_months, membership):
+    """Quarterly weights from the preceding sample, held for the three months."""
+    history = list(asset_returns.index.astype(str))
+    scored = [str(month) for month in scored_months]
+    columns = asset_returns.columns
+    sectors, zones, currencies = group_labels(columns, membership)
+    count = len(columns)
+    if count < MIN_POSITIONS:
+        raise RuntimeError("The shared list is shorter than the mandate minimum.")
+    panels = {strategy: [] for strategy in STRATEGY_IDS}
+    base = pd.Series(
+        project_mandate(np.ones(count), sectors, zones, currencies),
+        index=columns,
+        dtype=float,
+    )
+    held = None
+    previous = {"minimum_volatility": None, "maximum_sharpe": None}
+    for month in scored:
+        if held is None or _quarter_start(month):
+            end = history.index(month)
+            sample_index = history[end - ESTIMATION_MONTHS : end]
+            if len(sample_index) != ESTIMATION_MONTHS or sample_index[-1] >= month:
+                raise RuntimeError(f"{month} does not have {ESTIMATION_MONTHS} preceding returns.")
+            sample = asset_returns.loc[sample_index]
+            sample_rate = risk_free.reindex(sample_index)
+            if sample_rate.isna().any():
+                raise RuntimeError(f"{month} is missing a SARON observation in its estimation sample.")
+            decided = {
+                "equal_weight": base,
+                "minimum_volatility": minimum_volatility(
+                    sample, sectors, zones, currencies, previous["minimum_volatility"]
+                ),
+                "maximum_sharpe": maximum_sharpe(
+                    sample, sample_rate, sectors, zones, currencies, previous["maximum_sharpe"]
+                ),
+            }
+            previous["minimum_volatility"] = decided["minimum_volatility"].to_numpy()
+            previous["maximum_sharpe"] = decided["maximum_sharpe"].to_numpy()
+            held = decided
+            logger.info("Mandate weights fixed for %s", month)
+        for strategy, weights in held.items():
+            row = weights.reindex(columns)
+            if row.isna().any():
+                raise RuntimeError(f"{strategy} is missing a weight for {month}.")
+            row = row.copy()
+            row.name = month
+            panels[strategy].append(row)
+    return {strategy: pd.DataFrame(rows) for strategy, rows in panels.items()}
 
 
 def load_construction_inputs():
@@ -478,29 +718,33 @@ def load_construction_inputs():
 
 
 def construct_portfolios(prices, universe, saron):
-    """Build the three strategies on the shared monthly panel."""
+    """Build the three strategies. Each month uses only information already known."""
     levels = month_end_levels(prices)
-    return_months, price_months, risk_free = estimation_window(saron)
+    scored_months, price_months, risk_free = estimation_window(saron)
     membership = shared_membership(universe, levels, price_months)
-    asset_returns = shared_monthly_returns(
+    history = shared_monthly_returns(
         levels,
         membership,
-        return_months,
+        pd.period_range(price_months[0] + 1, price_months[-1], freq="M"),
         price_months,
     )
-    included = set(asset_returns.columns)
+    included = set(history.columns)
     membership.loc[
         membership["yahoo_symbol"].isin(included),
         ["decision", "reason"],
     ] = ["included", ""]
-    weights = {
-        "equal_weight": equal_weight(asset_returns),
-        "minimum_volatility": minimum_volatility(asset_returns),
-        "maximum_sharpe": maximum_sharpe(asset_returns, risk_free),
-    }
+    weights = mandate_weights(history, risk_free, scored_months, membership)
+    scored_index = pd.Index([str(month) for month in scored_months])
+    asset_returns = history.loc[scored_index]
+    scored_rate = risk_free.reindex(scored_index)
     metrics = pd.DataFrame(
         [
-            measure_strategy(strategy, asset_returns, risk_free, weights[strategy])
+            measure_strategy(
+                strategy,
+                portfolio_return(asset_returns, weights[strategy]),
+                scored_rate,
+                weights[strategy].iloc[-1],
+            )
             for strategy in STRATEGY_IDS
         ],
         columns=list(METRIC_COLUMNS),
@@ -510,9 +754,9 @@ def construct_portfolios(prices, universe, saron):
         "weights": build_weight_table(weights, membership),
         "metrics": metrics,
         "comparison": build_comparison(metrics),
-        "monthly_returns": build_monthly_returns(asset_returns, risk_free, weights),
+        "monthly_returns": build_monthly_returns(asset_returns, scored_rate, weights),
         "asset_returns": asset_returns,
-        "risk_free": risk_free,
+        "risk_free": scored_rate,
     }
 
 

@@ -1,14 +1,13 @@
 """
 Phase 6 portfolio monitoring.
 
-The three portfolios already share one set of weights. This module
-describes those weights and the path those weights produced. It does
-not estimate them again. Target weights are put back each month, so
-the allocation itself does not drift. What moves is the result:
-the value of one franc, the drawdown, and each sector's contribution.
+The three portfolios already have published weights. This module
+describes the last month's book and the path of the quarterly decisions.
+It does not estimate the weights again. The allocation below is the
+situation at the report month. Earlier months can differ.
 
-Sector, country and asset class come from the benchmark holdings.
-A country that is not in the zone map stays in the book as
+Sector and country come from the benchmark holdings. Exposure is the
+listing currency. A country that is not in the zone map stays in the book as
 "Non classé". A missing holdings row does the same. The weight is
 kept in every total.
 
@@ -72,14 +71,8 @@ CANDIDATES_OUTPUT = "security_candidates.csv"
 WEIGHT_SUM_TOLERANCE = 1e-8
 METRIC_TOLERANCE = 1e-6
 MISSING_LABELS = {"", "--", "nan", "none"}
-REQUESTED_EXPOSURES = ("Actions", "Obligations", "ETF")
-EXPOSURE_BY_ASSET_CLASS = {
-    "equity": "Actions",
-    "fixed income": "Obligations",
-    "bond": "Obligations",
-    "bonds": "Obligations",
-    "etf": "ETF",
-}
+REQUESTED_EXPOSURES = ()
+EXPOSURE_BY_ASSET_CLASS = {}
 # Location strings published by the holdings file. A new country is
 # reported as unclassified instead of being forced into a zone.
 COUNTRY_ZONES = {
@@ -171,9 +164,8 @@ REPORT_COLUMNS = (
     "largest_sector_weight",
     "largest_zone",
     "largest_zone_weight",
-    "actions_weight",
-    "obligations_weight",
-    "etf_weight",
+    "largest_currency",
+    "largest_currency_weight",
 )
 PATH_COLUMNS = (
     "month",
@@ -294,8 +286,11 @@ def load_published_portfolios():
         raise RuntimeError("The weight file does not contain the three strategies.")
     if set(metrics["strategy"]) != set(STRATEGY_IDS):
         raise RuntimeError("The metrics file does not contain the three strategies.")
-    if weights.duplicated(["strategy", "yahoo_symbol"]).any():
-        raise RuntimeError("A strategy lists the same symbol twice.")
+    if "month" not in weights.columns:
+        raise RuntimeError("The weight file has no month.")
+    weights["month"] = weights["month"].astype(str)
+    if weights.duplicated(["strategy", "month", "yahoo_symbol"]).any():
+        raise RuntimeError("A strategy lists the same symbol twice in one month.")
     if metrics["window_start"].nunique() != 1 or metrics["window_end"].nunique() != 1:
         raise RuntimeError("The strategies do not share one estimation window.")
     return weights, metrics
@@ -327,9 +322,11 @@ def classify_holdings(weights, classification):
     classified["sector"] = classified["sector"].map(lambda value: value or UNCLASSIFIED)
     classified["zone"] = classified["country"].map(zone_for)
     classified["country"] = classified["country"].map(lambda value: value or UNCLASSIFIED)
-    classified["exposure"] = classified["asset_class"].map(exposure_for)
     classified["asset_class"] = classified["asset_class"].map(
         lambda value: value or UNCLASSIFIED
+    )
+    classified["exposure"] = classified["listing_currency"].map(
+        lambda value: published_label(value) or UNCLASSIFIED
     )
     return classified.drop(columns="_merge")
 
@@ -351,33 +348,8 @@ def group_allocation(classified, key, key_column):
 
 
 def build_exposure(classified):
-    grouped = group_allocation(classified, "exposure", "exposure")
-    frames = []
-    for strategy in STRATEGY_IDS:
-        group = grouped.loc[grouped["strategy"].eq(strategy)].set_index("exposure")
-        rows = []
-        extras = [
-            label
-            for label in group.index
-            if label not in REQUESTED_EXPOSURES
-        ]
-        for label in list(REQUESTED_EXPOSURES) + extras:
-            if label in group.index:
-                weight = float(group.loc[label, "weight"])
-                names = int(group.loc[label, "names"])
-            else:
-                weight = 0.0
-                names = 0
-            rows.append(
-                {
-                    "strategy": strategy,
-                    "exposure": label,
-                    "weight": weight,
-                    "names": names,
-                }
-            )
-        frames.append(pd.DataFrame(rows))
-    return pd.concat(frames, ignore_index=True)
+    """Listing-currency weights. The book is equity only, so bonds and ETF are not rows."""
+    return group_allocation(classified, "exposure", "exposure")
 
 
 def build_top10(classified):
@@ -453,6 +425,7 @@ def build_monthly_report(concentration, sectors, zones, exposure):
         facts = concentration.loc[concentration["strategy"].eq(strategy)].iloc[0]
         sector, sector_weight = largest_group(sectors, strategy, "sector")
         zone, zone_weight = largest_group(zones, strategy, "zone")
+        currency, currency_weight = largest_group(exposure, strategy, "exposure")
         rows.append(
             {
                 "strategy": strategy,
@@ -470,25 +443,30 @@ def build_monthly_report(concentration, sectors, zones, exposure):
                 "largest_sector_weight": sector_weight,
                 "largest_zone": zone,
                 "largest_zone_weight": zone_weight,
-                "actions_weight": exposure_weight(exposure, strategy, "Actions"),
-                "obligations_weight": exposure_weight(exposure, strategy, "Obligations"),
-                "etf_weight": exposure_weight(exposure, strategy, "ETF"),
+                "largest_currency": currency,
+                "largest_currency_weight": currency_weight,
             }
         )
     return pd.DataFrame(rows)
 
 
 def shared_asset_returns():
-    """Rebuild the monthly CHF returns already used to publish the portfolios."""
+    """Rebuild the scored monthly CHF returns already used to publish the portfolios."""
     prices, universe, saron = load_construction_inputs()
     levels = month_end_levels(prices)
-    return_months, price_months, _risk_free = estimation_window(saron)
+    scored_months, price_months, _risk_free = estimation_window(saron)
     membership = shared_membership(universe, levels, price_months)
-    return shared_monthly_returns(levels, membership, return_months, price_months)
+    history = shared_monthly_returns(
+        levels,
+        membership,
+        pd.period_range(price_months[0] + 1, price_months[-1], freq="M"),
+        price_months,
+    )
+    return history.loc[[str(month) for month in scored_months]]
 
 
-def build_time_series(classified):
-    """Path of the constant target weights, and each sector's additive contribution."""
+def build_time_series(classified, weight_history):
+    """Path of the monthly mandate weights, and each sector's additive contribution."""
     asset_returns = shared_asset_returns()
     published = pd.read_csv(MONTHLY_RETURNS_FILE, dtype={"strategy": str, "month": str})
     sector_of = (
@@ -502,12 +480,14 @@ def build_time_series(classified):
         )
         if published_symbols != set(asset_returns.columns):
             raise RuntimeError(f"{strategy} weights do not match the shared return panel.")
-        weights = (
-            classified.loc[classified["strategy"].eq(strategy)]
-            .set_index("yahoo_symbol")["weight"]
-            .reindex(asset_returns.columns)
+        panel = (
+            weight_history.loc[weight_history["strategy"].eq(strategy)]
+            .pivot(index="month", columns="yahoo_symbol", values="weight")
+            .reindex(index=asset_returns.index, columns=asset_returns.columns)
         )
-        contributed = asset_returns.mul(weights, axis=1)
+        if panel.isna().any().any():
+            raise RuntimeError(f"{strategy} is missing a weight on a scored month.")
+        contributed = asset_returns.mul(panel)
         contributed.index = contributed.index.astype(str)
         total = contributed.sum(axis=1)
         official = (
@@ -558,15 +538,19 @@ def build_monitoring():
     """Publish the allocation, exposure and concentration of the current weights."""
     logger.info("Portfolio monitoring started")
     weights, metrics = load_published_portfolios()
+    report_month = str(metrics["window_end"].iloc[0])
+    current = weights.loc[weights["month"].eq(report_month)].copy()
+    if current.empty:
+        raise RuntimeError("The weight file has no row for the report month.")
     classification = load_holding_classification()
-    classified = classify_holdings(weights, classification)
+    classified = classify_holdings(current, classification)
     sectors = group_allocation(classified, "sector", "sector")
     zones = group_allocation(classified, "zone", "zone")
     exposure = build_exposure(classified)
     concentration = build_concentration(classified, metrics)
     top10 = build_top10(classified)
     report = build_monthly_report(concentration, sectors, zones, exposure)
-    path, contributions = build_time_series(classified)
+    path, contributions = build_time_series(classified, weights)
     outputs = {
         "holdings": (classified, HOLDINGS_FILE, HOLDING_COLUMNS),
         "sectors": (sectors, SECTOR_FILE, SECTOR_COLUMNS),

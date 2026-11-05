@@ -1,22 +1,25 @@
 strategy,sector,weight,names
-equal_weight,Health Care,0.3132530120481918,26
-equal_weight,Real Estate,0.21686746987951738,18
-equal_weight,Consumer Staples,0.1566265060240959,13
-equal_weight,Industrials,0.120481927710843,10
-equal_weight,Utilities,0.0722891566265058,6
-equal_weight,Information Technology,0.0602409638554215,5
-equal_weight,Consumer Discretionary,0.0481927710843372,4
-equal_weight,Materials,0.0120481927710843,1
-minimum_volatility,Real Estate,0.3144282401045232,4
-minimum_volatility,Consumer Staples,0.2874739228063114,4
-minimum_volatility,Health Care,0.2489860176394037,11
-minimum_volatility,Industrials,0.0655826429448567,3
-minimum_volatility,Utilities,0.0356212501684705,2
-minimum_volatility,Consumer Discretionary,0.0342900037489259,2
-minimum_volatility,Information Technology,0.0136179225875073,1
-maximum_sharpe,Health Care,0.4607852810990468,8
-maximum_sharpe,Information Technology,0.197279920242823,2
-maximum_sharpe,Utilities,0.1618220386127134,2
-maximum_sharpe,Industrials,0.099140224378996,2
-maximum_sharpe,Consumer Discretionary,0.050003860870592304,3
-maximum_sharpe,Consumer Staples,0.0309686747958274,2
+equal_weight,Health Care,0.2,25
+equal_weight,Real Estate,0.19999999999999948,15
+equal_weight,Consumer Staples,0.1999999999999992,12
+equal_weight,Industrials,0.1636363636363629,9
+equal_weight,Utilities,0.1090909090909086,6
+equal_weight,Information Technology,0.0727272727272724,4
+equal_weight,Consumer Discretionary,0.0363636363636362,2
+equal_weight,Materials,0.0181818181818181,1
+minimum_volatility,Real Estate,0.1999999999999997,7
+minimum_volatility,Health Care,0.1999635527068766,10
+minimum_volatility,Consumer Staples,0.19953920768103,9
+minimum_volatility,Industrials,0.170647238678171,5
+minimum_volatility,Utilities,0.1043093391543389,3
+minimum_volatility,Consumer Discretionary,0.0785536697303342,2
+minimum_volatility,Information Technology,0.0383517604705549,1
+minimum_volatility,Materials,0.0086352315786929,1
+maximum_sharpe,Health Care,0.1933592665636614,8
+maximum_sharpe,Consumer Staples,0.1849596844408082,6
+maximum_sharpe,Industrials,0.1812067319168668,6
+maximum_sharpe,Real Estate,0.170814201174739,7
+maximum_sharpe,Information Technology,0.08487500657137731,2
+maximum_sharpe,Utilities,0.0776678191471012,3
+maximum_sharpe,Consumer Discretionary,0.057180024702919705,2
+maximum_sharpe,Materials,0.049937265482525,1
