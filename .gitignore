@@ -66,6 +66,9 @@ audit/data_control_center.xlsx
 
 data/02_processed/
 
+# Company reports and controversy pages stay on disk. They are not part of the repository.
+data/01_raw/odd/Sources/
+
 # ============================================================================
 # NOTEBOOKS
 # ============================================================================
