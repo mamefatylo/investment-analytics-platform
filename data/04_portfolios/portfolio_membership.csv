@@ -1,121 +1,121 @@
-yahoo_symbol,ticker,name,exchange,listing_currency,decision,reason,available_price_months,required_price_months
-0288.HK,288,WH GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,146,181
-1216.TW,1216,UNI-PRESIDENT ENTERPRISES,Taiwan Stock Exchange,TWD,excluded,no_snb_series,0,181
-1585.HK,1585,YADEA GROUP HOLDINGS,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,125,181
-1801.HK,1801,INNOVENT BIOLOGICS,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,96,181
-2015.HK,2015,LI AUTO CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,62,181
-2082.SR,2082,ACWA POWER CO,Saudi Stock Exchange,SAR,excluded,no_snb_series,0,181
-247540.KQ,247540,ECOPRO BM LTD,Korea Exchange (Kosdaq),KRW,excluded,incomplete_monthly_history,91,181
-300274.SZ,300274,SUNGROW POWER SUPPLY LTD A,Shenzhen Stock Exchange,CNY,excluded,incomplete_monthly_history,179,181
-300750.SZ,300750,CONTEMPORARY AMPEREX TECHNOLOGY A,Shenzhen Stock Exchange,CNY,excluded,incomplete_monthly_history,100,181
-301358.SZ,301358,HUNAN YUNENG NEW ENERGY BATTERY MA,Shenzhen Stock Exchange,CNY,excluded,incomplete_monthly_history,44,181
-3692.HK,3692,HANSOH PHARMACEUTICAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,88,181
-373220.KS,373220,LG ENERGY SOLUTION LTD,Korea Exchange (Stock Market),KRW,excluded,incomplete_monthly_history,57,181
-3750.HK,3750,CONTEMPORARY AMPEREX TECHNOLOGY CL,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,17,181
-600905.SS,600905,CHINA THREE GORGES RENEWABLES(GROU,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,64,181
-601127.SS,601127,SERES GROUP A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,124,181
-603806.SS,603806,HANGZHOU FIRST APPLIED MATERIAL LT,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,144,181
-605117.SS,605117,NINGBO DEYE TECHNOLOGY CORP A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,66,181
-6160.HK,6160,BEONE MEDICINES AG,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,98,181
-6446.TW,6446,PHARMAESSENTIA,Taiwan Stock Exchange,TWD,excluded,no_snb_series,0,181
-6669.TW,6669,WIWYNN CORPORATION,Taiwan Stock Exchange,TWD,excluded,no_snb_series,0,181
-688187.SS,688187,ZHUZHOU CRRC TIMES ELECTRIC LTD A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,61,181
-688472.SS,688472,CSI SOLAR LTD A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,40,181
-688578.SS,688578,SHANGHAI ALLIST PHARMACEUTICALS LT,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,70,181
-9633.HK,9633,NONGFU SPRING LTD H,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,73,181
-9698.HK,9698,GDS HOLDINGS CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,71,181
-9863.HK,9863,ZHEJIANG LEAPMOTOR TECHNOLOGY LTD,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,49,181
-9866.HK,9866,NIO CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,55,181
-9868.HK,9868,XPENG CLASS A INC,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,63,181
-9901.HK,9901,NEW ORIENTAL EDUCATION & TECHNOLOG,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,71,181
-ARGX.BR,ARGX,ARGENX,Nyse Euronext - Euronext Brussels,EUR,excluded,incomplete_monthly_history,147,181
-CICT.SI,CICT,CAPITALAND INTEGRATED COMMERCIAL T,Singapore Exchange,SGD,excluded,no_price_history,0,181
-CLAR.SI,CLAR,CAPITALAND ASCENDAS REIT,Singapore Exchange,SGD,excluded,no_price_history,0,181
-COLPAL.NS,COLPAL,COLGATE PALMOLIVE INDIA LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,0,181
-ENLT.TA,ENLT,ENLIGHT RENEWABLE ENERGY,Tel Aviv Stock Exchange,ILS,excluded,no_snb_series,0,181
-ESSITY-B.ST,ESSITY B,ESSITY CLASS B,Nasdaq Omx Nordic,SEK,excluded,incomplete_monthly_history,112,181
-FIBRAPL14.MX,FIBRAPL14,PROLOGIS PROPERTY MEXICO REIT,Bolsa Mexicana De Valores,MXN,excluded,incomplete_monthly_history,148,181
-HINDUNILVR.NS,HINDUNILVR,HINDUSTAN UNILEVER LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,0,181
-LODHA.NS,LODHA,LODHA DEVELOPERS LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,0,181
-LUPIN.NS,LUPIN,LUPIN,National Stock Exchange Of India,INR,excluded,no_snb_series,0,181
-NESTLEIND.NS,NESTLEIND,NESTLE INDIA LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,0,181
-ORSTED.CO,ORSTED,ORSTED A/S,Omx Nordic Exchange Copenhagen A/S,DKK,excluded,no_price_history,0,181
-RIVN,RIVN,RIVIAN AUTOMOTIVE INC CLASS A,NASDAQ,USD,excluded,incomplete_monthly_history,59,181
-SUZLON.NS,SUZLON,SUZLON ENERGY,National Stock Exchange Of India,INR,excluded,no_snb_series,0,181
-URW.PA,URW,UNIBAIL RODAMCO WE STAPLED UNITS,Nyse Euronext - Euronext Paris,EUR,excluded,incomplete_monthly_history,42,181
-VCX.AX,VCX,VICINITY CENTRES,Asx - All Markets,AUD,excluded,incomplete_monthly_history,178,181
-VNA.DE,VNA,VONOVIA SE,Xetra,EUR,excluded,incomplete_monthly_history,159,181
-000895.SZ,000895,HENAN SHUANGHUI INVESTMENT & DEVEL,Shenzhen Stock Exchange,CNY,included,,181,181
-0012.HK,12,HENDERSON LAND DEVELOPMENT LTD,Hong Kong Exchanges And Clearing Ltd,HKD,included,,181,181
-001979.SZ,001979,CHINA MERCHANTS SHEKOU INDUSTRIAL,Shenzhen Stock Exchange,CNY,included,,181,181
-002129.SZ,002129,TCL ZHONGHUAN RENEWABLE ENERGY TEC,Shenzhen Stock Exchange,CNY,included,,181,181
-002202.SZ,002202,GOLDWIND SCIENCE&TECHNOLOGY LTD A,Shenzhen Stock Exchange,CNY,included,,181,181
-0066.HK,66,MTR CORPORATION,Hong Kong Exchanges And Clearing Ltd,HKD,included,,181,181
-010120.KS,010120,LS ELECTRIC LTD,Korea Exchange (Stock Market),KRW,included,,181,181
-0322.HK,322,TINGYI (CAYMAN ISLANDS) HOLDINGS,Hong Kong Exchanges And Clearing Ltd,HKD,included,,181,181
-0916.HK,916,CHINA LONGYUAN POWER GROUP H,Hong Kong Exchanges And Clearing Ltd,HKD,included,,181,181
-1044.HK,1044,HENGAN INTERNATIONAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,included,,181,181
-1093.HK,1093,CSPC PHARMACEUTICAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,included,,181,181
-2319.HK,2319,CHINA MENGNIU DAIRY LTD,Hong Kong Exchanges And Clearing Ltd,HKD,included,,181,181
-3898.HK,3898,ZHUZHOU CRRC TIMES ELECTRIC LTD H,Hong Kong Exchanges And Clearing Ltd,HKD,included,,181,181
-4151.T,4151,KYOWA KIRIN LTD,Tokyo Stock Exchange,JPY,included,,181,181
-4507.T,4507,SHIONOGI,Tokyo Stock Exchange,JPY,included,,181,181
-4519.T,4519,CHUGAI PHARMACEUTICAL LTD,Tokyo Stock Exchange,JPY,included,,181,181
-4523.T,4523,EISAI,Tokyo Stock Exchange,JPY,included,,181,181
-4543.T,4543,TERUMO,Tokyo Stock Exchange,JPY,included,,181,181
-4568.T,4568,DAIICHI SANKYO LTD,Tokyo Stock Exchange,JPY,included,,181,181
-8113.T,8113,UNICHARM,Tokyo Stock Exchange,JPY,included,,181,181
-8951.T,8951,NIPPON BUILDING FUND REIT,Tokyo Stock Exchange,JPY,included,,181,181
-9020.T,9020,EAST JAPAN RAILWAY,Tokyo Stock Exchange,JPY,included,,181,181
-9022.T,9022,CENTRAL JAPAN RAILWAY,Tokyo Stock Exchange,JPY,included,,181,181
-ALNY,ALNY,ALNYLAM PHARMACEUTICALS,NASDAQ,USD,included,,181,181
-ANA.MC,ANA,ACCIONA,Bolsa De Madrid,EUR,included,,181,181
-BMY,BMY,BRISTOL MYERS SQUIBB,NYSE,USD,included,,181,181
-COV.PA,COV,COVIVIO SA,Nyse Euronext - Euronext Paris,EUR,included,,181,181
-CSL.AX,CSL,CSL,Asx - All Markets,AUD,included,,181,181
-DEMANT.CO,DEMANT,DEMANT,Omx Nordic Exchange Copenhagen A/S,DKK,included,,181,181
-DLR,DLR,DIGITAL REALTY TRUST REIT,NYSE,USD,included,,181,181
-DXCM,DXCM,DEXCOM INC,NASDAQ,USD,included,,181,181
-EDPR.LS,EDPR,EDP RENEWABLES SA,Nyse Euronext - Euronext Lisbon,EUR,included,,181,181
-ELI.BR,ELI,ELIA GROUP SA,Nyse Euronext - Euronext Brussels,EUR,included,,181,181
-EQIX,EQIX,EQUINIX REIT,NASDAQ,USD,included,,181,181
-EW,EW,EDWARDS LIFESCIENCES,NYSE,USD,included,,181,181
-FSLR,FSLR,FIRST SOLAR,NASDAQ,USD,included,,181,181
-GFC.PA,GFC,GECINA SA,Nyse Euronext - Euronext Paris,EUR,included,,181,181
-GMAB.CO,GMAB,GENMAB,Omx Nordic Exchange Copenhagen A/S,DKK,included,,181,181
-HOT.DE,HOT,HOCHTIEF AG,Xetra,EUR,included,,181,181
-INCY,INCY,INCYTE CORP,NASDAQ,USD,included,,181,181
-INSM,INSM,INSMED,NASDAQ,USD,included,,181,181
-IPN.PA,IPN,IPSEN SA,Nyse Euronext - Euronext Paris,EUR,included,,181,181
-KIMBERA.MX,KIMBERA,KIMBERLY-CLARK DE MEXICO CLASS A,Bolsa Mexicana De Valores,MXN,included,,181,181
-KMB,KMB,KIMBERLY CLARK,NASDAQ,USD,included,,181,181
-LAND.L,LAND,LAND SECURITIES GROUP REIT PLC,London Stock Exchange,GBP,included,,181,181
-LI.PA,LI,KLEPIERRE REIT SA,Nyse Euronext - Euronext Paris,EUR,included,,181,181
-MAS,MAS,MASCO,NYSE,USD,included,,181,181
-MOWI.OL,MOWI,MOWI,Oslo Bors Asa,NOK,included,,181,181
-MRVL,MRVL,MARVELL TECHNOLOGY,NASDAQ,USD,included,,181,181
-NBIX,NBIX,NEUROCRINE BIOSCIENCES,NASDAQ,USD,included,,181,181
-NOVN.SW,NOVN,NOVARTIS AG,SIX Swiss Exchange,CHF,included,,181,181
-NRP.JO,NRP,NEPI ROCKCASTLE,Johannesburg Stock Exchange,ZAR,included,,181,181
-NVDA,NVDA,NVIDIA,NASDAQ,USD,included,,181,181
-PSON.L,PSON,PEARSON PLC,London Stock Exchange,GBP,included,,181,181
-REC.MI,REC,RECORDATI INDUSTRIA CHIMICA E FARM,Borsa Italiana,EUR,included,,181,181
-REGN,REGN,REGENERON PHARMACEUTICALS,NASDAQ,USD,included,,181,181
-SALM.OL,SALM,SALMAR,Oslo Bors Asa,NOK,included,,181,181
-SAP.TO,SAP,SAPUTO,Toronto Stock Exchange,CAD,included,,181,181
-SCA-B.ST,SCA B,SVENSKA CELLULOSA B,Nasdaq Omx Nordic,SEK,included,,181,181
-SCG.AX,SCG,SCENTRE GROUP,Asx - All Markets,AUD,included,,181,181
-SGRO.L,SGRO,SEGRO REIT PLC,London Stock Exchange,GBP,included,,181,181
-SIGMAFA.MX,SIGMAFA,ALFA A,Bolsa Mexicana De Valores,MXN,included,,181,181
-SOBI.ST,SOBI,SWEDISH ORPHAN BIOVITRUM,Nasdaq Omx Nordic,SEK,included,,181,181
-SOON.SW,SOON,SONOVA HOLDING AG,SIX Swiss Exchange,CHF,included,,181,181
-SPSN.SW,SPSN,SWISS PRIME SITE AG,SIX Swiss Exchange,CHF,included,,181,181
-SUI,SUI,SUN COMMUNITIES REIT INC,NYSE,USD,included,,181,181
-TAL,TAL,TAL EDUCATION GROUP ADR REPTG,NYSE,USD,included,,181,181
-TSN,TSN,TYSON FOODS INC CLASS A,NYSE,USD,included,,181,181
-UTHR,UTHR,UNITED THERAPEUTICS,NASDAQ,USD,included,,181,181
-UU.L,UU.,UNITED UTILITIES GROUP PLC,London Stock Exchange,GBP,included,,181,181
-VER.VI,VER,VERBUND AG,Wiener Boerse Ag,EUR,included,,181,181
-VRTX,VRTX,VERTEX PHARMACEUTICALS,NASDAQ,USD,included,,181,181
-VWS.CO,VWS,VESTAS WIND SYSTEMS,Omx Nordic Exchange Copenhagen A/S,DKK,included,,181,181
-WY,WY,WEYERHAEUSER REIT,NYSE,USD,included,,181,181
+yahoo_symbol,ticker,name,exchange,listing_currency,history_decision,history_reason,odd_status,decision,reason,available_price_months,required_price_months
+000895.SZ,000895,HENAN SHUANGHUI INVESTMENT & DEVEL,Shenzhen Stock Exchange,CNY,included,,Not_Eligible,excluded,Not_Eligible,181,181
+0012.HK,12,HENDERSON LAND DEVELOPMENT LTD,Hong Kong Exchanges And Clearing Ltd,HKD,included,,Indeterminate,excluded,Indeterminate,181,181
+001979.SZ,001979,CHINA MERCHANTS SHEKOU INDUSTRIAL,Shenzhen Stock Exchange,CNY,included,,Indeterminate,excluded,Indeterminate,181,181
+002202.SZ,002202,GOLDWIND SCIENCE&TECHNOLOGY LTD A,Shenzhen Stock Exchange,CNY,included,,Indeterminate,excluded,Indeterminate,181,181
+0066.HK,66,MTR CORPORATION,Hong Kong Exchanges And Clearing Ltd,HKD,included,,Not_Eligible,excluded,Not_Eligible,181,181
+010120.KS,010120,LS ELECTRIC LTD,Korea Exchange (Stock Market),KRW,included,,Indeterminate,excluded,Indeterminate,181,181
+0288.HK,288,WH GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,146,181
+0322.HK,322,TINGYI (CAYMAN ISLANDS) HOLDINGS,Hong Kong Exchanges And Clearing Ltd,HKD,included,,Indeterminate,excluded,Indeterminate,181,181
+1093.HK,1093,CSPC PHARMACEUTICAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,included,,Indeterminate,excluded,Indeterminate,181,181
+1216.TW,1216,UNI-PRESIDENT ENTERPRISES,Taiwan Stock Exchange,TWD,excluded,no_snb_series,Not_Eligible,excluded,Not_Eligible,0,181
+1585.HK,1585,YADEA GROUP HOLDINGS,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,125,181
+1801.HK,1801,INNOVENT BIOLOGICS,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,96,181
+2015.HK,2015,LI AUTO CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,62,181
+2082.SR,2082,ACWA POWER CO,Saudi Stock Exchange,SAR,excluded,no_snb_series,Indeterminate,excluded,Indeterminate,0,181
+2319.HK,2319,CHINA MENGNIU DAIRY LTD,Hong Kong Exchanges And Clearing Ltd,HKD,included,,Indeterminate,excluded,Indeterminate,181,181
+247540.KQ,247540,ECOPRO BM LTD,Korea Exchange (Kosdaq),KRW,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,91,181
+300274.SZ,300274,SUNGROW POWER SUPPLY LTD A,Shenzhen Stock Exchange,CNY,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,179,181
+300750.SZ,300750,CONTEMPORARY AMPEREX TECHNOLOGY A,Shenzhen Stock Exchange,CNY,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,100,181
+301358.SZ,301358,HUNAN YUNENG NEW ENERGY BATTERY MA,Shenzhen Stock Exchange,CNY,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,44,181
+3692.HK,3692,HANSOH PHARMACEUTICAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,88,181
+373220.KS,373220,LG ENERGY SOLUTION LTD,Korea Exchange (Stock Market),KRW,excluded,incomplete_monthly_history,Not_Eligible,excluded,Not_Eligible,57,181
+3750.HK,3750,CONTEMPORARY AMPEREX TECHNOLOGY CL,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,17,181
+4151.T,4151,KYOWA KIRIN LTD,Tokyo Stock Exchange,JPY,included,,Indeterminate,excluded,Indeterminate,181,181
+4519.T,4519,CHUGAI PHARMACEUTICAL LTD,Tokyo Stock Exchange,JPY,included,,Indeterminate,excluded,Indeterminate,181,181
+4543.T,4543,TERUMO,Tokyo Stock Exchange,JPY,included,,Indeterminate,excluded,Indeterminate,181,181
+600905.SS,600905,CHINA THREE GORGES RENEWABLES(GROU,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,64,181
+601127.SS,601127,SERES GROUP A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,124,181
+603806.SS,603806,HANGZHOU FIRST APPLIED MATERIAL LT,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,144,181
+605117.SS,605117,NINGBO DEYE TECHNOLOGY CORP A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,66,181
+6160.HK,6160,BEONE MEDICINES AG,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,98,181
+6446.TW,6446,PHARMAESSENTIA,Taiwan Stock Exchange,TWD,excluded,no_snb_series,Indeterminate,excluded,Indeterminate,0,181
+6669.TW,6669,WIWYNN CORPORATION,Taiwan Stock Exchange,TWD,excluded,no_snb_series,Indeterminate,excluded,Indeterminate,0,181
+688187.SS,688187,ZHUZHOU CRRC TIMES ELECTRIC LTD A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,61,181
+688472.SS,688472,CSI SOLAR LTD A,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,40,181
+688578.SS,688578,SHANGHAI ALLIST PHARMACEUTICALS LT,Shanghai Stock Exchange,CNY,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,70,181
+8113.T,8113,UNICHARM,Tokyo Stock Exchange,JPY,included,,Indeterminate,excluded,Indeterminate,181,181
+9020.T,9020,EAST JAPAN RAILWAY,Tokyo Stock Exchange,JPY,included,,Indeterminate,excluded,Indeterminate,181,181
+9633.HK,9633,NONGFU SPRING LTD H,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,73,181
+9698.HK,9698,GDS HOLDINGS CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,71,181
+9863.HK,9863,ZHEJIANG LEAPMOTOR TECHNOLOGY LTD,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,49,181
+9866.HK,9866,NIO CLASS A,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,55,181
+9868.HK,9868,XPENG CLASS A INC,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,63,181
+9901.HK,9901,NEW ORIENTAL EDUCATION & TECHNOLOG,Hong Kong Exchanges And Clearing Ltd,HKD,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,71,181
+ANA.MC,ANA,ACCIONA,Bolsa De Madrid,EUR,included,,Not_Eligible,excluded,Not_Eligible,181,181
+ARGX.BR,ARGX,ARGENX,Nyse Euronext - Euronext Brussels,EUR,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,147,181
+CICT.SI,CICT,CAPITALAND INTEGRATED COMMERCIAL T,Singapore Exchange,SGD,excluded,no_price_history,Eligible,excluded,no_price_history,0,181
+CLAR.SI,CLAR,CAPITALAND ASCENDAS REIT,Singapore Exchange,SGD,excluded,no_price_history,Indeterminate,excluded,Indeterminate,0,181
+COLPAL.NS,COLPAL,COLGATE PALMOLIVE INDIA LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,Indeterminate,excluded,Indeterminate,0,181
+CSL.AX,CSL,CSL,Asx - All Markets,AUD,included,,Indeterminate,excluded,Indeterminate,181,181
+DXCM,DXCM,DEXCOM INC,NASDAQ,USD,included,,Not_Eligible,excluded,Not_Eligible,181,181
+EDPR.LS,EDPR,EDP RENEWABLES SA,Nyse Euronext - Euronext Lisbon,EUR,included,,Indeterminate,excluded,Indeterminate,181,181
+ELI.BR,ELI,ELIA GROUP SA,Nyse Euronext - Euronext Brussels,EUR,included,,Indeterminate,excluded,Indeterminate,181,181
+ENLT.TA,ENLT,ENLIGHT RENEWABLE ENERGY,Tel Aviv Stock Exchange,ILS,excluded,no_snb_series,Eligible,excluded,no_snb_series,0,181
+ESSITY-B.ST,ESSITY B,ESSITY CLASS B,Nasdaq Omx Nordic,SEK,excluded,incomplete_monthly_history,Not_Eligible,excluded,Not_Eligible,112,181
+EW,EW,EDWARDS LIFESCIENCES,NYSE,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+FIBRAPL14.MX,FIBRAPL14,PROLOGIS PROPERTY MEXICO REIT,Bolsa Mexicana De Valores,MXN,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,148,181
+FSLR,FSLR,FIRST SOLAR,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+HINDUNILVR.NS,HINDUNILVR,HINDUSTAN UNILEVER LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,Eligible,excluded,no_snb_series,0,181
+HOT.DE,HOT,HOCHTIEF AG,Xetra,EUR,included,,Indeterminate,excluded,Indeterminate,181,181
+INCY,INCY,INCYTE CORP,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+INSM,INSM,INSMED,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+IPN.PA,IPN,IPSEN SA,Nyse Euronext - Euronext Paris,EUR,included,,Indeterminate,excluded,Indeterminate,181,181
+KIMBERA.MX,KIMBERA,KIMBERLY-CLARK DE MEXICO CLASS A,Bolsa Mexicana De Valores,MXN,included,,Not_Eligible,excluded,Not_Eligible,181,181
+KMB,KMB,KIMBERLY CLARK,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+LI.PA,LI,KLEPIERRE REIT SA,Nyse Euronext - Euronext Paris,EUR,included,,Indeterminate,excluded,Indeterminate,181,181
+LODHA.NS,LODHA,LODHA DEVELOPERS LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,Indeterminate,excluded,Indeterminate,0,181
+LUPIN.NS,LUPIN,LUPIN,National Stock Exchange Of India,INR,excluded,no_snb_series,Not_Eligible,excluded,Not_Eligible,0,181
+MAS,MAS,MASCO,NYSE,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+MOWI.OL,MOWI,MOWI,Oslo Bors Asa,NOK,included,,Indeterminate,excluded,Indeterminate,181,181
+MRVL,MRVL,MARVELL TECHNOLOGY,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+NBIX,NBIX,NEUROCRINE BIOSCIENCES,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+NESTLEIND.NS,NESTLEIND,NESTLE INDIA LTD,National Stock Exchange Of India,INR,excluded,no_snb_series,Indeterminate,excluded,Indeterminate,0,181
+NOVN.SW,NOVN,NOVARTIS AG,SIX Swiss Exchange,CHF,included,,Not_Eligible,excluded,Not_Eligible,181,181
+NVDA,NVDA,NVIDIA,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+ORSTED.CO,ORSTED,ORSTED A/S,Omx Nordic Exchange Copenhagen A/S,DKK,excluded,no_price_history,Eligible,excluded,no_price_history,0,181
+REGN,REGN,REGENERON PHARMACEUTICALS,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+RIVN,RIVN,RIVIAN AUTOMOTIVE INC CLASS A,NASDAQ,USD,excluded,incomplete_monthly_history,Indeterminate,excluded,Indeterminate,59,181
+SAP.TO,SAP,SAPUTO,Toronto Stock Exchange,CAD,included,,Not_Eligible,excluded,Not_Eligible,181,181
+SCG.AX,SCG,SCENTRE GROUP,Asx - All Markets,AUD,included,,Indeterminate,excluded,Indeterminate,181,181
+SGRO.L,SGRO,SEGRO REIT PLC,London Stock Exchange,GBP,included,,Not_Eligible,excluded,Not_Eligible,181,181
+SIGMAFA.MX,SIGMAFA,ALFA A,Bolsa Mexicana De Valores,MXN,included,,Indeterminate,excluded,Indeterminate,181,181
+SUZLON.NS,SUZLON,SUZLON ENERGY,National Stock Exchange Of India,INR,excluded,no_snb_series,Eligible,excluded,no_snb_series,0,181
+TAL,TAL,TAL EDUCATION GROUP ADR REPTG,NYSE,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+TSN,TSN,TYSON FOODS INC CLASS A,NYSE,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+URW.PA,URW,UNIBAIL RODAMCO WE STAPLED UNITS,Nyse Euronext - Euronext Paris,EUR,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,42,181
+UTHR,UTHR,UNITED THERAPEUTICS,NASDAQ,USD,included,,Not_Eligible,excluded,Not_Eligible,181,181
+UU.L,UU.,UNITED UTILITIES GROUP PLC,London Stock Exchange,GBP,included,,Indeterminate,excluded,Indeterminate,181,181
+VCX.AX,VCX,VICINITY CENTRES,Asx - All Markets,AUD,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,178,181
+VER.VI,VER,VERBUND AG,Wiener Boerse Ag,EUR,included,,Indeterminate,excluded,Indeterminate,181,181
+VNA.DE,VNA,VONOVIA SE,Xetra,EUR,excluded,incomplete_monthly_history,Eligible,excluded,incomplete_monthly_history,159,181
+VRTX,VRTX,VERTEX PHARMACEUTICALS,NASDAQ,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+WY,WY,WEYERHAEUSER REIT,NYSE,USD,included,,Indeterminate,excluded,Indeterminate,181,181
+002129.SZ,002129,TCL ZHONGHUAN RENEWABLE ENERGY TEC,Shenzhen Stock Exchange,CNY,included,,Eligible,included,,181,181
+0916.HK,916,CHINA LONGYUAN POWER GROUP H,Hong Kong Exchanges And Clearing Ltd,HKD,included,,Eligible,included,,181,181
+1044.HK,1044,HENGAN INTERNATIONAL GROUP,Hong Kong Exchanges And Clearing Ltd,HKD,included,,Eligible,included,,181,181
+3898.HK,3898,ZHUZHOU CRRC TIMES ELECTRIC LTD H,Hong Kong Exchanges And Clearing Ltd,HKD,included,,Eligible,included,,181,181
+4507.T,4507,SHIONOGI,Tokyo Stock Exchange,JPY,included,,Eligible,included,,181,181
+4523.T,4523,EISAI,Tokyo Stock Exchange,JPY,included,,Eligible,included,,181,181
+4568.T,4568,DAIICHI SANKYO LTD,Tokyo Stock Exchange,JPY,included,,Eligible,included,,181,181
+8951.T,8951,NIPPON BUILDING FUND REIT,Tokyo Stock Exchange,JPY,included,,Eligible,included,,181,181
+9022.T,9022,CENTRAL JAPAN RAILWAY,Tokyo Stock Exchange,JPY,included,,Eligible,included,,181,181
+ALNY,ALNY,ALNYLAM PHARMACEUTICALS,NASDAQ,USD,included,,Eligible,included,,181,181
+BMY,BMY,BRISTOL MYERS SQUIBB,NYSE,USD,included,,Eligible,included,,181,181
+COV.PA,COV,COVIVIO SA,Nyse Euronext - Euronext Paris,EUR,included,,Eligible,included,,181,181
+DEMANT.CO,DEMANT,DEMANT,Omx Nordic Exchange Copenhagen A/S,DKK,included,,Eligible,included,,181,181
+DLR,DLR,DIGITAL REALTY TRUST REIT,NYSE,USD,included,,Eligible,included,,181,181
+EQIX,EQIX,EQUINIX REIT,NASDAQ,USD,included,,Eligible,included,,181,181
+GFC.PA,GFC,GECINA SA,Nyse Euronext - Euronext Paris,EUR,included,,Eligible,included,,181,181
+GMAB.CO,GMAB,GENMAB,Omx Nordic Exchange Copenhagen A/S,DKK,included,,Eligible,included,,181,181
+LAND.L,LAND,LAND SECURITIES GROUP REIT PLC,London Stock Exchange,GBP,included,,Eligible,included,,181,181
+NRP.JO,NRP,NEPI ROCKCASTLE,Johannesburg Stock Exchange,ZAR,included,,Eligible,included,,181,181
+PSON.L,PSON,PEARSON PLC,London Stock Exchange,GBP,included,,Eligible,included,,181,181
+REC.MI,REC,RECORDATI INDUSTRIA CHIMICA E FARM,Borsa Italiana,EUR,included,,Eligible,included,,181,181
+SALM.OL,SALM,SALMAR,Oslo Bors Asa,NOK,included,,Eligible,included,,181,181
+SCA-B.ST,SCA B,SVENSKA CELLULOSA B,Nasdaq Omx Nordic,SEK,included,,Eligible,included,,181,181
+SOBI.ST,SOBI,SWEDISH ORPHAN BIOVITRUM,Nasdaq Omx Nordic,SEK,included,,Eligible,included,,181,181
+SOON.SW,SOON,SONOVA HOLDING AG,SIX Swiss Exchange,CHF,included,,Eligible,included,,181,181
+SPSN.SW,SPSN,SWISS PRIME SITE AG,SIX Swiss Exchange,CHF,included,,Eligible,included,,181,181
+SUI,SUI,SUN COMMUNITIES REIT INC,NYSE,USD,included,,Eligible,included,,181,181
+VWS.CO,VWS,VESTAS WIND SYSTEMS,Omx Nordic Exchange Copenhagen A/S,DKK,included,,Eligible,included,,181,181

@@ -2,8 +2,10 @@
 Phase 5 portfolio construction.
 
 Equal Weight, Minimum Volatility, and Maximum Sharpe share one
-CHF-eligible universe and one monthly CHF return series. SARON is
-the risk-free rate. No price, rate, or expected return is invented.
+list and one monthly CHF return series. A name is on that list
+only when its ODD status is Eligible and its CHF month-end history
+is complete. SARON is the risk-free rate. No price, rate, or
+expected return is invented.
 
 The weight of a quarter is fixed from the previous ESTIMATION_MONTHS
 returns only, then held for the three months of that quarter.
@@ -107,11 +109,15 @@ MEMBERSHIP_COLUMNS = (
     "name",
     "exchange",
     "listing_currency",
+    "history_decision",
+    "history_reason",
+    "odd_status",
     "decision",
     "reason",
     "available_price_months",
     "required_price_months",
 )
+ODD_STATUSES = ("Eligible", "Not_Eligible", "Indeterminate", "Excluded")
 COMPARISON_METRICS = (
     "annualized_return",
     "annualized_volatility",
@@ -707,6 +713,64 @@ def mandate_weights(asset_returns, risk_free, scored_months, membership):
     return {strategy: pd.DataFrame(rows) for strategy, rows in panels.items()}
 
 
+def apply_portfolio_entry(membership):
+    """Keep a weight only for an Eligible name with a complete CHF history.
+
+    ``decision`` is still the history screen when this function is called.
+    Both screens stay visible: ``history_decision`` and ``odd_status``.
+    """
+    frame = membership.copy()
+    frame["history_decision"] = frame["decision"]
+    frame["history_reason"] = frame["reason"]
+    eligible = frame["odd_status"].eq("Eligible")
+    history_ok = frame["history_decision"].eq("included")
+    frame["decision"] = "excluded"
+    frame["reason"] = frame["odd_status"]
+    frame.loc[eligible & ~history_ok, "reason"] = frame.loc[eligible & ~history_ok, "history_reason"]
+    frame.loc[eligible & history_ok, "decision"] = "included"
+    frame.loc[eligible & history_ok, "reason"] = ""
+    return frame.sort_values(
+        ["decision", "yahoo_symbol"],
+        ascending=[True, True],
+    ).reset_index(drop=True)
+
+
+def attach_odd_status(membership):
+    """Copy the ODD status of every listing onto the membership."""
+    from src.governance.source_registry import (
+        build_dataset_absolute_path,
+        get_dataset_by_id,
+    )
+
+    configuration = get_dataset_by_id("DS-006").to_dict()
+    register = pd.read_csv(
+        build_dataset_absolute_path(configuration),
+        dtype=str,
+        keep_default_na=False,
+    )
+    required = ("Ticker", "Exchange", "Status")
+    absent = [column for column in required if column not in register.columns]
+    if absent:
+        raise RuntimeError("The ODD register has no column: " + ", ".join(absent))
+    status = register.loc[:, list(required)]
+    if status.duplicated(["Ticker", "Exchange"]).any():
+        raise RuntimeError("The ODD register repeats a listing.")
+    merged = membership.merge(
+        status,
+        left_on=["ticker", "exchange"],
+        right_on=["Ticker", "Exchange"],
+        how="left",
+        validate="one_to_one",
+    )
+    observed = merged["Status"].fillna("").str.strip()
+    invalid = ~observed.isin(ODD_STATUSES)
+    if invalid.any():
+        names = ", ".join(merged.loc[invalid, "yahoo_symbol"].astype(str))
+        raise RuntimeError("A listing has no official ODD status: " + names)
+    merged["odd_status"] = observed
+    return merged.drop(columns=["Ticker", "Exchange", "Status"])
+
+
 def load_construction_inputs():
     """Read the treated CHF prices, the eligible universe, and SARON."""
     prices = pd.read_csv(MARKET_PRICES_CHF, usecols=["symbol", "timestamp", "close_chf"])
@@ -733,6 +797,10 @@ def construct_portfolios(prices, universe, saron):
         membership["yahoo_symbol"].isin(included),
         ["decision", "reason"],
     ] = ["included", ""]
+    membership = attach_odd_status(membership)
+    membership = apply_portfolio_entry(membership)
+    kept = membership.loc[membership["decision"].eq("included"), "yahoo_symbol"]
+    history = history.loc[:, list(kept)]
     weights = mandate_weights(history, risk_free, scored_months, membership)
     scored_index = pd.Index([str(month) for month in scored_months])
     asset_returns = history.loc[scored_index]

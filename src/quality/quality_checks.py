@@ -28,6 +28,10 @@ from src.quality.quality_config import (
     FAIL_RATE,
     FIGI_PATTERN,
     ISO_CURRENCY_PATTERN,
+    DAILY_FRESHNESS_DAYS,
+    HOLDINGS_WEIGHT_TOLERANCE,
+    HOLDINGS_WEIGHT_TOTAL,
+    MONTHLY_FRESHNESS_DAYS,
     ODD_STATUS_PATTERN,
     OHLC_ABSOLUTE_TOLERANCE,
     OHLC_RELATIVE_TOLERANCE,
@@ -48,7 +52,8 @@ def load_quality_enabled_datasets(connection) -> pd.DataFrame:
             dataset_id,
             source_id,
             table_name,
-            chronology_enabled
+            chronology_enabled,
+            last_acquisition_date
         FROM dataset_registry
         WHERE active = 1
         AND quality_enabled = 1
@@ -218,6 +223,66 @@ def check_outliers(dataframe, rules) -> tuple[bool, int, str]:
             return True, 0, "Le SARON renseigné reste dans l'intervalle -5 à 15."
         return True, issues, f"{issues} observation(s) du SARON sont hors de l'intervalle -5 à 15."
 
+    if kind == "holdings":
+        columns = ("market_value", "weight", "notional_value", "price", "fx_rate", "quantity")
+        absent = missing_columns(dataframe, columns)
+        if absent:
+            return True, len(dataframe), f"Colonnes de montant absentes : {', '.join(absent)}."
+        numbers = dataframe.loc[:, list(columns)].apply(pd.to_numeric, errors="coerce")
+        unreadable = numbers.isna().any(axis=1)
+        negative = (numbers < 0).any(axis=1)
+        weight_total = float(numbers["weight"].sum())
+        weight_off = abs(weight_total - HOLDINGS_WEIGHT_TOTAL) > HOLDINGS_WEIGHT_TOLERANCE
+        issues = int((unreadable | negative).sum()) + int(weight_off)
+        if issues == 0:
+            return True, 0, (
+                "Les montants sont lisibles et ne sont pas négatifs. "
+                f"La somme des poids est {weight_total:.5f}."
+            )
+        parts = []
+        if int(unreadable.sum()):
+            parts.append(f"{int(unreadable.sum())} ligne(s) ont un montant illisible")
+        if int(negative.sum()):
+            parts.append(f"{int(negative.sum())} ligne(s) ont un montant négatif")
+        if weight_off:
+            parts.append(f"la somme des poids est {weight_total:.5f}")
+        return True, issues, ". ".join(parts) + "."
+
+    if kind == "nav_return":
+        column = "monthly_total_nav_return"
+        if column not in dataframe.columns or "month_end_date" not in dataframe.columns:
+            return True, len(dataframe), "Colonnes du rendement absentes."
+        values = pd.to_numeric(dataframe[column], errors="coerce")
+        dates = parse_dates(dataframe["month_end_date"])
+        blank = is_blank(dataframe[column]) | values.isna()
+        earliest = dates.min()
+        blank_later = blank & dates.notna() & (dates != earliest)
+        unreadable = ~is_blank(dataframe[column]) & values.isna()
+        issues = int((blank_later | unreadable).sum())
+        if issues == 0:
+            return True, 0, "Le rendement de la valeur liquidative est numérique, hors le premier mois."
+        return True, issues, f"{issues} mois ont un rendement vide ou illisible après le premier mois."
+
+    if kind == "nav_history":
+        if "nav_per_share" not in dataframe.columns or "shares_outstanding" not in dataframe.columns:
+            return True, len(dataframe), "Colonnes de la valeur liquidative absentes."
+        nav = pd.to_numeric(dataframe["nav_per_share"], errors="coerce")
+        shares = pd.to_numeric(dataframe["shares_outstanding"], errors="coerce")
+        flagged = nav.isna() | (nav <= 0) | shares.isna() | (shares <= 0)
+        issues = int(flagged.sum())
+        if issues == 0:
+            return True, 0, "La valeur liquidative et les parts en circulation sont strictement positives."
+        return True, issues, f"{issues} séance(s) ont une valeur liquidative ou un nombre de parts invalide."
+
+    if kind == "distribution":
+        if "total_distribution" not in dataframe.columns:
+            return True, len(dataframe), "Colonne du montant de distribution absente."
+        total = pd.to_numeric(dataframe["total_distribution"], errors="coerce")
+        issues = int((total.isna() | (total <= 0)).sum())
+        if issues == 0:
+            return True, 0, "Chaque distribution a un montant strictement positif."
+        return True, issues, f"{issues} distribution(s) ont un montant vide, nul ou négatif."
+
     return False, 0, "Règle d'aberration inconnue."
 
 
@@ -345,6 +410,26 @@ def check_currency(dataframe, rules, frames) -> tuple[bool, int, str]:
             )
         return True, issues, f"{issues} observation(s) de change ont une unité, un code ou un taux incohérent."
 
+    if kind == "valuation":
+        if "currency" not in dataframe.columns:
+            return True, len(dataframe), "Colonne de devise absente : currency."
+        text = dataframe["currency"].astype(str).str.strip()
+        present = ~is_blank(dataframe["currency"])
+        invalid = ~present | ~text.str.match(ISO_CURRENCY_PATTERN)
+        codes = text[present & text.str.match(ISO_CURRENCY_PATTERN)]
+        unique_codes = sorted(codes.unique())
+        if len(unique_codes) == 1:
+            flagged = invalid
+            note = f"La devise de valorisation est {unique_codes[0]} sur chaque ligne lisible."
+        else:
+            flagged = pd.Series(True, index=dataframe.index)
+            listed = ", ".join(unique_codes) if unique_codes else "aucune"
+            note = f"La devise de valorisation n'est pas unique : {listed}."
+        issues = int(flagged.sum())
+        if issues == 0:
+            return True, 0, note
+        return True, issues, note
+
     if kind == "saron_quote":
         header = dataframe["header_item_1"].astype(str)
         unit = dataframe["unit"].astype(str)
@@ -369,7 +454,18 @@ def parse_dates(series: pd.Series) -> pd.Series:
     return pd.to_datetime(series, errors="coerce")
 
 
-def check_chronology(dataframe, rules, chronology_enabled: bool) -> tuple[bool, int, str]:
+def freshness_allowance(columns) -> int:
+    if any("timestamp" in column.lower() for column in columns):
+        return DAILY_FRESHNESS_DAYS
+    return MONTHLY_FRESHNESS_DAYS
+
+
+def check_chronology(
+    dataframe,
+    rules,
+    chronology_enabled: bool,
+    acquired_at=None,
+) -> tuple[bool, int, str]:
     if not chronology_enabled:
         return False, 0, "Chronologie désactivée pour ce jeu."
     columns = list(rules.get("chronology_columns", ()))
@@ -406,11 +502,54 @@ def check_chronology(dataframe, rules, chronology_enabled: bool) -> tuple[bool, 
         comparable = start_parsed.notna() & end_parsed.notna()
         flagged = flagged | (comparable & (start_parsed > end_parsed))
 
-    issues = int(flagged.sum())
+    date_issues = int(flagged.sum())
     latest_note = ", ".join(latest)
+    freshness = "La fraîcheur n'est pas mesurée : last_acquisition_date est absente."
+    freshness_issues = 0
+    acquired = pd.to_datetime(acquired_at, utc=True, errors="coerce")
+    if pd.notna(acquired) and acquired.tzinfo is not None:
+        acquired = acquired.tz_convert(None)
+    observed = []
+    for column in columns:
+        parsed = parse_dates(dataframe[column])
+        if parsed.notna().any():
+            observed.append(parsed.max())
+    if pd.isna(acquired):
+        freshness_issues = 1
+    elif observed:
+        latest_observed = max(observed)
+        lag_days = int((acquired.normalize() - latest_observed.normalize()).days)
+        allowance = int(rules.get("freshness_days") or freshness_allowance(columns))
+        if lag_days > allowance:
+            freshness_issues = 1
+            freshness = (
+                f"Série en retard de {lag_days} jours sur le chargement "
+                f"du {acquired.date().isoformat()} (plafond {allowance})."
+            )
+        else:
+            freshness = (
+                f"Fraîcheur tenue : dernière observation {latest_observed.date().isoformat()}, "
+                f"chargement {acquired.date().isoformat()}, écart {max(lag_days, 0)} jours "
+                f"(plafond {allowance})."
+            )
+    if rules.get("chronology_freshness", True) is False:
+        freshness = "La fraîcheur ne s'applique pas : cette table est une liste d'événements."
+        freshness_issues = 0
+    if date_issues == 0:
+        dates_note = (
+            "Les dates se lisent et ne sont pas postérieures à aujourd'hui. "
+            f"Dernière date : {latest_note}."
+        )
+    else:
+        dates_note = (
+            f"{date_issues} date(s) illisibles ou postérieures à aujourd'hui. "
+            f"Dernière date : {latest_note}."
+        )
+    note = f"{dates_note} {freshness}"
+    issues = date_issues + freshness_issues
     if issues == 0:
-        return True, 0, f"Les dates se lisent et ne sont pas postérieures à aujourd'hui. Dernière date : {latest_note}."
-    return True, issues, f"{issues} date(s) illisibles ou postérieures à aujourd'hui. Dernière date : {latest_note}."
+        return True, 0, note
+    return True, issues, note
 
 
 def unavailable_results(dataset, execution_date: str) -> list[dict]:
@@ -504,7 +643,9 @@ def odd_register_reading(dataframe: pd.DataFrame) -> str:
 def check_dataset(dataset, dataframe, frames, execution_date: str) -> list[dict]:
     rules = rules_for_table(dataset.table_name)
     records = len(dataframe)
-    chronology_enabled = bool(dataset.chronology_enabled)
+    chronology_enabled = bool(dataset.chronology_enabled) or bool(
+        rules.get("chronology_columns")
+    )
 
     missing_issues, missing_notes = check_missing_values(dataset, dataframe, rules)
     duplicate_issues, duplicate_notes = check_duplicates(dataset, dataframe, rules)
@@ -523,6 +664,7 @@ def check_dataset(dataset, dataframe, frames, execution_date: str) -> list[dict]
         dataframe,
         rules,
         chronology_enabled,
+        getattr(dataset, "last_acquisition_date", None),
     )
 
     outcomes = (
@@ -545,6 +687,25 @@ def check_dataset(dataset, dataframe, frames, execution_date: str) -> list[dict]
         )
         for control_name, applicable, issues, notes in outcomes
     ]
+
+
+def published_sheet_tables(dataset) -> list[str]:
+    """Table names declared for the other sheets of this dataset."""
+    from src.governance.source_registry import get_dataset_by_id
+
+    configuration = get_dataset_by_id(dataset.dataset_id)
+    parameters = configuration.get("Parameters")
+    if not isinstance(parameters, dict):
+        return []
+    sheets = parameters.get("sheets") or {}
+    if not isinstance(sheets, dict):
+        return []
+    names = []
+    for table_name in sheets.values():
+        name = str(table_name).strip()
+        if name and name != dataset.table_name and name not in names:
+            names.append(name)
+    return names
 
 
 def run_quality_checks(execution_date: str | None = None) -> pd.DataFrame:
@@ -574,10 +735,22 @@ def run_quality_checks(execution_date: str | None = None) -> pd.DataFrame:
                     execution_date,
                 )
             )
+            for table_name in published_sheet_tables(dataset):
+                if table_name in frames:
+                    continue
+                sheet = dataset._replace(table_name=table_name)
+                if not table_exists(connection, table_name):
+                    results.extend(unavailable_results(sheet, execution_date))
+                    continue
+                frames[table_name] = load_dataset(connection, table_name)
+                results.extend(
+                    check_dataset(sheet, frames[table_name], frames, execution_date)
+                )
 
         odd = pd.read_sql(
             """
-            SELECT dataset_id, source_id, table_name, chronology_enabled
+            SELECT dataset_id, source_id, table_name, chronology_enabled,
+                   last_acquisition_date
             FROM dataset_registry
             WHERE active = 1
             AND table_name = 'odd_assessment'

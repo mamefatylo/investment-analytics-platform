@@ -26,7 +26,7 @@ from src.utils.logger import logger
 
 DATABASE_TIMEOUT_SECONDS = 30
 BUSY_TIMEOUT_MILLISECONDS = 30_000
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 MIGRATIONS_TABLE = "schema_migrations"
 ACQUISITION_LOG_TABLE = "acquisition_log"
@@ -476,6 +476,125 @@ def apply_migration_002(connection):
     )
 
 
+def apply_migration_003(connection):
+    """Allow several controlled tables for one dataset."""
+    def primary_key_columns(table_name):
+        rows = connection.execute(f'PRAGMA table_info("{table_name}")').fetchall()
+        keyed = sorted((row[5], row[1]) for row in rows if row[5])
+        return [name for _, name in keyed]
+
+    if "table_name" in primary_key_columns(QUALITY_CONTROL_RESULT_TABLE):
+        return
+
+    connection.execute("PRAGMA foreign_keys = OFF")
+    quality_statuses = build_sql_literals(QUALITY_STATUSES)
+    connection.execute(
+        f"""
+        CREATE TABLE {QUALITY_CONTROL_RESULT_TABLE}_next (
+            run_id TEXT NOT NULL,
+            dataset_id TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            table_name TEXT NOT NULL,
+            control_id TEXT NOT NULL,
+            control_name TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ({quality_statuses})),
+            issues INTEGER NOT NULL CHECK (issues >= 0),
+            records_checked INTEGER NOT NULL CHECK (records_checked >= 0),
+            notes TEXT NOT NULL DEFAULT '',
+            execution_date TEXT NOT NULL CHECK (length(trim(execution_date)) > 0),
+            created_at TEXT NOT NULL CHECK (length(trim(created_at)) > 0),
+            PRIMARY KEY (run_id, dataset_id, table_name, control_id),
+            FOREIGN KEY (run_id)
+                REFERENCES {QUALITY_RUN_TABLE} (run_id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (dataset_id)
+                REFERENCES {DATASET_REGISTRY_TABLE} (dataset_id)
+        )
+        """
+    )
+    connection.execute(
+        f"""
+        INSERT INTO {QUALITY_CONTROL_RESULT_TABLE}_next
+        SELECT run_id, dataset_id, source_id, table_name, control_id, control_name,
+               status, issues, records_checked, notes, execution_date, created_at
+        FROM {QUALITY_CONTROL_RESULT_TABLE}
+        """
+    )
+    connection.execute(f"DROP TABLE {QUALITY_CONTROL_RESULT_TABLE}")
+    connection.execute(
+        f"ALTER TABLE {QUALITY_CONTROL_RESULT_TABLE}_next "
+        f"RENAME TO {QUALITY_CONTROL_RESULT_TABLE}"
+    )
+    connection.execute(
+        f"""
+        CREATE TABLE {QUALITY_METRIC_RESULT_TABLE}_next (
+            run_id TEXT NOT NULL,
+            dataset_id TEXT NOT NULL,
+            source_id TEXT NOT NULL,
+            table_name TEXT NOT NULL,
+            metric_name TEXT NOT NULL,
+            metric_value REAL,
+            metric_status TEXT NOT NULL CHECK (
+                metric_status IN ({quality_statuses})
+            ),
+            threshold REAL CHECK (
+                threshold IS NULL OR (threshold >= 0 AND threshold <= 100)
+            ),
+            weight REAL NOT NULL DEFAULT 1.0 CHECK (weight >= 0),
+            applicable INTEGER NOT NULL CHECK (applicable IN (0, 1)),
+            records_checked INTEGER NOT NULL CHECK (records_checked >= 0),
+            execution_date TEXT NOT NULL CHECK (length(trim(execution_date)) > 0),
+            created_at TEXT NOT NULL CHECK (length(trim(created_at)) > 0),
+            PRIMARY KEY (run_id, dataset_id, table_name, metric_name),
+            FOREIGN KEY (run_id)
+                REFERENCES {QUALITY_RUN_TABLE} (run_id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (dataset_id)
+                REFERENCES {DATASET_REGISTRY_TABLE} (dataset_id)
+        )
+        """
+    )
+    connection.execute(
+        f"""
+        INSERT INTO {QUALITY_METRIC_RESULT_TABLE}_next
+        SELECT run_id, dataset_id, source_id, table_name, metric_name, metric_value,
+               metric_status, threshold, weight, applicable, records_checked,
+               execution_date, created_at
+        FROM {QUALITY_METRIC_RESULT_TABLE}
+        """
+    )
+    connection.execute(f"DROP TABLE {QUALITY_METRIC_RESULT_TABLE}")
+    connection.execute(
+        f"ALTER TABLE {QUALITY_METRIC_RESULT_TABLE}_next "
+        f"RENAME TO {QUALITY_METRIC_RESULT_TABLE}"
+    )
+    connection.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_quality_control_dataset_date
+        ON {QUALITY_CONTROL_RESULT_TABLE} (dataset_id, execution_date DESC)
+        """
+    )
+    connection.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_quality_control_status_date
+        ON {QUALITY_CONTROL_RESULT_TABLE} (status, execution_date DESC)
+        """
+    )
+    connection.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_quality_metric_dataset_date
+        ON {QUALITY_METRIC_RESULT_TABLE} (dataset_id, execution_date DESC)
+        """
+    )
+    connection.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_quality_metric_name_date
+        ON {QUALITY_METRIC_RESULT_TABLE} (metric_name, execution_date DESC)
+        """
+    )
+    connection.execute("PRAGMA foreign_keys = ON")
+
+
 MIGRATIONS = (
     (
         1,
@@ -486,6 +605,11 @@ MIGRATIONS = (
         2,
         "Create quality run, control result, and metric result tables",
         apply_migration_002,
+    ),
+    (
+        3,
+        "Score each published table of a dataset",
+        apply_migration_003,
     ),
 )
 

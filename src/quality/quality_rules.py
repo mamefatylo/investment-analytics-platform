@@ -7,6 +7,51 @@ absente de ce référentiel reçoit les règles génériques.
 """
 
 TABLE_RULES = {
+    "benchmark_holdings": {
+        "mandatory": (
+            "ticker",
+            "name",
+            "sector",
+            "asset_class",
+            "market_value",
+            "weight",
+            "location",
+            "exchange",
+            "currency",
+        ),
+        "duplicate_key": ("ticker", "exchange"),
+        "outlier": "holdings",
+        "formats": ("currency",),
+        "currency": "valuation",
+        "chronology_columns": (),
+    },
+    "benchmark_performance": {
+        "mandatory": ("month_end_date",),
+        "duplicate_key": ("month_end_date",),
+        "outlier": "nav_return",
+        "formats": (),
+        "currency": None,
+        "chronology_columns": ("month_end_date",),
+        "freshness_days": 62,
+    },
+    "benchmark_historical": {
+        "mandatory": ("as_of", "nav_per_share", "shares_outstanding"),
+        "duplicate_key": ("as_of",),
+        "outlier": "nav_history",
+        "formats": (),
+        "currency": None,
+        "chronology_columns": ("as_of",),
+        "freshness_days": 7,
+    },
+    "benchmark_distributions": {
+        "mandatory": ("ex_date", "total_distribution"),
+        "duplicate_key": ("ex_date",),
+        "outlier": "distribution",
+        "formats": (),
+        "currency": None,
+        "chronology_columns": ("record_date", "ex_date", "payable_date"),
+        "chronology_freshness": False,
+    },
     "securities_master": {
         "mandatory": (
             "ticker",

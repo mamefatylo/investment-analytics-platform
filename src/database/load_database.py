@@ -88,7 +88,76 @@ def validate_input_file(file_path):
         )
 
 
-def read_dataset(file_path):
+def is_spreadsheetml(file_path):
+    """True when an .xls file is XML Spreadsheet, not a binary workbook."""
+    sample = file_path.read_bytes()[:300].lstrip().lower()
+    return sample.startswith(b"<?xml") or sample.startswith(b"<workbook")
+
+
+def is_sheet_date(value) -> bool:
+    """True when the cell is a date, whatever the printed pattern."""
+    text = str(value).strip()
+    if not text or text in {"--", "nan"}:
+        return False
+    return pd.notna(pd.to_datetime(text, errors="coerce"))
+
+
+def sheet_table(rows):
+    """Table under the first header that is followed by a dated row."""
+    header_index = None
+    for index, row in enumerate(rows[:-1]):
+        nxt = rows[index + 1]
+        current = str(row[0]).strip() if row else ""
+        following = str(nxt[0]).strip() if nxt else ""
+        if is_sheet_date(following) and not is_sheet_date(current):
+            header_index = index
+            break
+    if header_index is None:
+        raise ValueError("The sheet has no dated table under a header.")
+    header = [str(cell).strip() for cell in rows[header_index]]
+    width = len(header)
+    records = []
+    for row in rows[header_index + 1:]:
+        if not row or not is_sheet_date(row[0]):
+            continue
+        values = []
+        for index in range(width):
+            text = str(row[index]).strip() if index < len(row) else ""
+            if text in {"--", "nan"}:
+                text = ""
+            values.append(text)
+        records.append(values)
+    if not records:
+        raise ValueError("The dated sheet has a header and no rows.")
+    return pd.DataFrame(records, columns=header)
+
+
+def read_spreadsheetml_holdings(file_path, configuration):
+    """Read the holdings table from the named SpreadsheetML worksheet."""
+    from src.preparation.securities_candidates import (
+        extract_worksheet_content,
+        extract_worksheet_rows,
+        find_header_row,
+        read_text_file,
+        reconstruct_holdings,
+    )
+
+    parameters = configuration.get("Parameters") if configuration else None
+    if not isinstance(parameters, dict):
+        parameters = {}
+    worksheet = str(parameters.get("worksheet") or "").strip()
+    if not worksheet:
+        raise ValueError(
+            "SpreadsheetML holdings file has no worksheet parameter: "
+            f"{file_path}"
+        )
+    workbook = read_text_file(file_path)
+    content = extract_worksheet_content(workbook, worksheet)
+    rows = extract_worksheet_rows(content)
+    return reconstruct_holdings(rows, find_header_row(rows))
+
+
+def read_dataset(file_path, configuration=None):
     """Read a configured dataset according to its extension."""
     validate_input_file(file_path)
     extension = file_path.suffix.lower()
@@ -99,6 +168,8 @@ def read_dataset(file_path):
         dataframe = pd.read_parquet(file_path)
     elif extension == ".json":
         dataframe = pd.read_json(file_path)
+    elif extension in {".xlsx", ".xls"} and is_spreadsheetml(file_path):
+        dataframe = read_spreadsheetml_holdings(file_path, configuration)
     elif extension in {".xlsx", ".xls"}:
         engine = "openpyxl" if extension == ".xlsx" else "xlrd"
         dataframe = pd.read_excel(file_path, engine=engine)
@@ -444,7 +515,7 @@ def load_one_dataset(connection, configuration):
     file_path = build_dataset_absolute_path(configuration)
 
     logger.info("Database load started for table %s from %s", table_name, file_path)
-    dataframe = read_dataset(file_path)
+    dataframe = read_dataset(file_path, configuration)
     staging_name = create_staging_table(connection, table_name, dataframe)
     publish_staging_table(connection, staging_name, table_name)
 
@@ -456,6 +527,25 @@ def load_one_dataset(connection, configuration):
             f"Published row count mismatch for {table_name}. "
             f"Expected {len(dataframe)}, found {published_rows}."
         )
+
+    parameters = configuration.get("Parameters")
+    extra_sheets = parameters.get("sheets") if isinstance(parameters, dict) else None
+    if extra_sheets and is_spreadsheetml(file_path):
+        from src.preparation.securities_candidates import (
+            extract_worksheet_content,
+            extract_worksheet_rows,
+            read_text_file,
+        )
+
+        workbook = read_text_file(file_path)
+        for worksheet, extra_table in extra_sheets.items():
+            extra_name = str(extra_table).strip()
+            quote_identifier(extra_name)
+            rows = extract_worksheet_rows(extract_worksheet_content(workbook, str(worksheet)))
+            extra_frame = normalize_dataframe_columns(sheet_table(rows))
+            extra_staging = create_staging_table(connection, extra_name, extra_frame)
+            publish_staging_table(connection, extra_staging, extra_name)
+            logger.info("Database table loaded: %s | rows=%s", extra_name, len(extra_frame))
 
     register_dataset(connection, configuration, table_name, published_rows)
     logger.info("Database table loaded: %s | rows=%s", table_name, published_rows)

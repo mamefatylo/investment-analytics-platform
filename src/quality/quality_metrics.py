@@ -59,10 +59,10 @@ def calculate_quality_metrics(controls: pd.DataFrame) -> dict:
     dataset_rows = []
     metric_rows = []
 
-    for dataset_id, dataset_controls in controls.groupby("dataset_id", sort=True):
+    for table_name, dataset_controls in controls.groupby("table_name", sort=True):
         dataset_controls = dataset_controls.set_index("control_name")
+        dataset_id = dataset_controls["dataset_id"].iloc[0]
         source_id = dataset_controls["source_id"].iloc[0]
-        table_name = dataset_controls["table_name"].iloc[0]
         records_checked = int(dataset_controls["records_checked"].max())
         applicable_rates = []
 
